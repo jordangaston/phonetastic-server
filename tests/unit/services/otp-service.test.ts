@@ -1,60 +1,37 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import bcrypt from 'bcrypt';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { OtpService } from '../../../src/services/otp-service.js';
-import { BadRequestError, GoneError, NotFoundError } from '../../../src/lib/errors.js';
+import { StubOtpProvider } from '../../../src/services/otp-provider.js';
+import { BadRequestError } from '../../../src/lib/errors.js';
 
 describe('OtpService', () => {
-  let otpRepo: any;
-  let smsService: any;
+  let provider: StubOtpProvider;
   let service: OtpService;
 
   beforeEach(() => {
-    otpRepo = { create: vi.fn(), findById: vi.fn() };
-    smsService = { send: vi.fn() };
-    service = new OtpService(otpRepo, smsService);
+    provider = new StubOtpProvider();
+    service = new OtpService(provider);
   });
 
   describe('generateAndSend', () => {
-    it('stores a hashed OTP and sends an SMS', async () => {
-      otpRepo.create.mockResolvedValue({ id: 1, expiresAt: Date.now() + 300_000 });
-
+    it('delegates to the OTP provider and returns pending status', async () => {
       const result = await service.generateAndSend('+15551234567');
 
-      expect(otpRepo.create).toHaveBeenCalledOnce();
-      expect(smsService.send).toHaveBeenCalledWith('+15551234567', expect.stringContaining('Your code is:'));
-      expect(result.id).toBe(1);
+      expect(provider.sent).toContain('+15551234567');
+      expect(result).toEqual({ status: 'pending' });
     });
   });
 
   describe('verify', () => {
-    it('throws NotFoundError when OTP does not exist', async () => {
-      otpRepo.findById.mockResolvedValue(null);
-      await expect(service.verify(1, '123456')).rejects.toThrow(NotFoundError);
+    it('throws BadRequestError when the code is not approved', async () => {
+      await expect(service.verify('+15551234567', '000000')).rejects.toThrow(BadRequestError);
     });
 
-    it('throws GoneError when OTP has expired', async () => {
-      otpRepo.findById.mockResolvedValue({
-        id: 1, expiresAt: Date.now() - 1, password: 'hash', phoneNumberE164: '+1',
-      });
-      await expect(service.verify(1, '123456')).rejects.toThrow(GoneError);
-    });
+    it('returns verified result for an approved code', async () => {
+      provider.approvedCodes.set('+15551234567', '123456');
 
-    it('throws BadRequestError for a wrong code', async () => {
-      const hash = await bcrypt.hash('correct', 1);
-      otpRepo.findById.mockResolvedValue({
-        id: 1, expiresAt: Date.now() + 300_000, password: hash, phoneNumberE164: '+1',
-      });
-      await expect(service.verify(1, 'wrong')).rejects.toThrow(BadRequestError);
-    });
+      const result = await service.verify('+15551234567', '123456');
 
-    it('returns verified result for the correct code', async () => {
-      const hash = await bcrypt.hash('123456', 1);
-      otpRepo.findById.mockResolvedValue({
-        id: 1, expiresAt: Date.now() + 300_000, password: hash, phoneNumberE164: '+15551234567',
-      });
-
-      const result = await service.verify(1, '123456');
-      expect(result).toEqual({ id: 1, verified: true, phoneNumberE164: '+15551234567' });
+      expect(result).toEqual({ verified: true, phoneNumberE164: '+15551234567' });
     });
   });
 });

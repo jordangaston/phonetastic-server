@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { container } from 'tsyringe';
 import { createDb, type Database } from '../../src/db/index.js';
-import { StubSmsService } from '../../src/services/sms-service.js';
+import { StubOtpProvider } from '../../src/services/otp-provider.js';
 import { StubLiveKitService } from '../../src/services/livekit-service.js';
 import { StubGoogleOAuthService } from '../../src/services/google-oauth-service.js';
 import { StubFirecrawlService } from '../../src/services/firecrawl-service.js';
@@ -11,7 +11,7 @@ import type { FastifyInstance } from 'fastify';
 
 let db: Database | undefined;
 let app: FastifyInstance | undefined;
-let smsService: StubSmsService | undefined;
+let otpProvider: StubOtpProvider | undefined;
 
 /**
  * Returns a shared test database instance.
@@ -24,13 +24,13 @@ export function getTestDb(): Database {
 }
 
 /**
- * Returns a shared stub SMS service for assertions.
+ * Returns a shared stub OTP provider for assertions.
  */
-export function getStubSmsService(): StubSmsService {
-  if (!smsService) {
-    smsService = new StubSmsService();
+export function getStubOtpProvider(): StubOtpProvider {
+  if (!otpProvider) {
+    otpProvider = new StubOtpProvider();
   }
-  return smsService;
+  return otpProvider;
 }
 
 /**
@@ -41,7 +41,7 @@ export async function getTestApp(): Promise<FastifyInstance> {
   if (!app) {
     setupContainer({
       db: getTestDb(),
-      smsService: getStubSmsService(),
+      otpProvider: getStubOtpProvider(),
       livekitService: new StubLiveKitService(),
       googleOAuthService: new StubGoogleOAuthService(),
       firecrawlService: new StubFirecrawlService(),
@@ -62,5 +62,5 @@ export async function closeTestApp(): Promise<void> {
   }
   container.clearInstances();
   db = undefined;
-  smsService = undefined;
+  otpProvider = undefined;
 }

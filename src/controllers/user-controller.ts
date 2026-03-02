@@ -32,7 +32,7 @@ export async function userController(app: FastifyInstance): Promise<void> {
 
   app.post<{
     Querystring: { expand?: string };
-    Body: { auth: { otp?: { id: number; code: string }; refresh_token?: string } };
+    Body: { auth: { otp?: { phone_number: string; code: string }; refresh_token?: string } };
   }>('/v1/users/sign_in', async (request, reply) => {
     const { auth } = request.body;
     const expand = request.query.expand?.split(',') ?? [];

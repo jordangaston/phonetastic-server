@@ -1,11 +1,10 @@
 import 'reflect-metadata';
 import { container } from 'tsyringe';
 import { createDb, type Database } from '../db/index.js';
-import { StubSmsService, TwilioSmsService, type SmsService } from '../services/sms-service.js';
+import { StubOtpProvider, TwilioVerifyOtpProvider, type OtpProvider } from '../services/otp-provider.js';
 import { StubLiveKitService, LiveKitServiceImpl, type LiveKitService } from '../services/livekit-service.js';
 import { StubGoogleOAuthService, RealGoogleOAuthService, type GoogleOAuthService } from '../services/google-oauth-service.js';
 import { StubFirecrawlService, RealFirecrawlService, type FirecrawlService } from '../services/firecrawl-service.js';
-import { OtpRepository } from '../repositories/otp-repository.js';
 import { PhoneNumberRepository } from '../repositories/phone-number-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
 import { BotRepository } from '../repositories/bot-repository.js';
@@ -29,20 +28,15 @@ import { PhoneNumberService } from '../services/phone-number-service.js';
 import { CallService } from '../services/call-service.js';
 import { env } from './env.js';
 
-function createSmsService(): SmsService {
-  const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID, TWILIO_FROM_NUMBER } = env;
-  const sender = TWILIO_MESSAGING_SERVICE_SID
-    ? { messagingServiceSid: TWILIO_MESSAGING_SERVICE_SID }
-    : TWILIO_FROM_NUMBER
-      ? { from: TWILIO_FROM_NUMBER }
-      : null;
-  if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && sender) {
+function createOtpProvider(): OtpProvider {
+  const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID } = env;
+  if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_VERIFY_SERVICE_SID) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const twilio = require('twilio');
     const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-    return new TwilioSmsService(client.messages, sender);
+    return new TwilioVerifyOtpProvider(client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID));
   }
-  return new StubSmsService();
+  return new StubOtpProvider();
 }
 
 function createLiveKitService(): LiveKitService {
@@ -73,14 +67,14 @@ function createFirecrawlService(): FirecrawlService {
  * @postcondition All repositories, services, and infrastructure are registered.
  * @param overrides - Optional dependency overrides for testing.
  * @param overrides.db - A pre-configured Database instance.
- * @param overrides.smsService - A custom SmsService implementation.
+ * @param overrides.otpProvider - A custom OtpProvider implementation.
  * @param overrides.livekitService - A custom LiveKitService implementation.
  * @param overrides.googleOAuthService - A custom GoogleOAuthService implementation.
  * @param overrides.firecrawlService - A custom FirecrawlService implementation.
  */
 export function setupContainer(overrides?: {
   db?: Database;
-  smsService?: SmsService;
+  otpProvider?: OtpProvider;
   livekitService?: LiveKitService;
   googleOAuthService?: GoogleOAuthService;
   firecrawlService?: FirecrawlService;
@@ -88,12 +82,11 @@ export function setupContainer(overrides?: {
   const db = overrides?.db ?? createDb();
   container.registerInstance<Database>('Database', db);
 
-  container.registerInstance<SmsService>('SmsService', overrides?.smsService ?? createSmsService());
+  container.registerInstance<OtpProvider>('OtpProvider', overrides?.otpProvider ?? createOtpProvider());
   container.registerInstance<LiveKitService>('LiveKitService', overrides?.livekitService ?? createLiveKitService());
   container.registerInstance<GoogleOAuthService>('GoogleOAuthService', overrides?.googleOAuthService ?? createGoogleOAuthService());
   container.registerInstance<FirecrawlService>('FirecrawlService', overrides?.firecrawlService ?? createFirecrawlService());
 
-  container.register('OtpRepository', { useClass: OtpRepository });
   container.register('PhoneNumberRepository', { useClass: PhoneNumberRepository });
   container.register('UserRepository', { useClass: UserRepository });
   container.register('BotRepository', { useClass: BotRepository });

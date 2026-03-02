@@ -104,7 +104,7 @@ export class UserService {
    * @throws {UnauthorizedError} If the refresh token is invalid or expired.
    */
   async signIn(input: {
-    auth: { otp?: { id: number; code: string }; refresh_token?: string };
+    auth: { otp?: { phone_number: string; code: string }; refresh_token?: string };
     expand?: string[];
   }) {
     const user = await this.resolveUser(input.auth);
@@ -130,14 +130,14 @@ export class UserService {
     return user;
   }
 
-  private async resolveUser(auth: { otp?: { id: number; code: string }; refresh_token?: string }) {
+  private async resolveUser(auth: { otp?: { phone_number: string; code: string }; refresh_token?: string }) {
     if (auth.otp) return this.resolveUserByOtp(auth.otp);
     if (auth.refresh_token) return this.resolveUserByRefreshToken(auth.refresh_token);
     throw new BadRequestError('Auth method required');
   }
 
-  private async resolveUserByOtp(otp: { id: number; code: string }) {
-    const { phoneNumberE164 } = await this.otpService.verify(otp.id, otp.code);
+  private async resolveUserByOtp(otp: { phone_number: string; code: string }) {
+    const { phoneNumberE164 } = await this.otpService.verify(otp.phone_number, otp.code);
     const phoneNumber = await this.phoneNumberRepo.findByE164(phoneNumberE164);
     if (!phoneNumber) throw new NotFoundError('Phone number not found');
     const user = await this.userRepo.findByPhoneNumberId(phoneNumber.id);

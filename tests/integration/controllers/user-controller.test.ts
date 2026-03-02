@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
-import { getTestApp, getTestDb, closeTestApp, getStubSmsService } from '../../helpers/test-app.js';
+import { getTestApp, getTestDb, closeTestApp, getStubOtpProvider } from '../../helpers/test-app.js';
 import { cleanDatabase } from '../../helpers/db-cleaner.js';
 import { createTestUser } from '../../helpers/auth-helper.js';
 import type { FastifyInstance } from 'fastify';
@@ -13,7 +13,9 @@ describe('User Controller', () => {
 
   beforeEach(async () => {
     await cleanDatabase(getTestDb());
-    getStubSmsService().sent.length = 0;
+    const provider = getStubOtpProvider();
+    provider.sent.length = 0;
+    provider.approvedCodes.clear();
   });
 
   afterAll(async () => {
@@ -95,18 +97,12 @@ describe('User Controller', () => {
     it('signs in via OTP and returns user with auth tokens', async () => {
       const { user } = await createTestUser(app, { phoneNumber: '+15559990001' });
 
-      const otpRes = await app.inject({
-        method: 'POST',
-        url: '/v1/otps',
-        payload: { otp: { phone_number: '+15559990001' } },
-      });
-      const { id: otpId } = otpRes.json().otp;
-      const code = getStubSmsService().sent[0].body.match(/\d{6}/)![0];
+      getStubOtpProvider().approvedCodes.set('+15559990001', '123456');
 
       const response = await app.inject({
         method: 'POST',
         url: '/v1/users/sign_in',
-        payload: { auth: { otp: { id: otpId, code } } },
+        payload: { auth: { otp: { phone_number: '+15559990001', code: '123456' } } },
       });
 
       expect(response.statusCode).toBe(200);
@@ -149,19 +145,12 @@ describe('User Controller', () => {
     });
 
     it('returns 400 for an invalid OTP code', async () => {
-      const { user: _user } = await createTestUser(app, { phoneNumber: '+15559990002' });
-
-      const otpRes = await app.inject({
-        method: 'POST',
-        url: '/v1/otps',
-        payload: { otp: { phone_number: '+15559990002' } },
-      });
-      const { id: otpId } = otpRes.json().otp;
+      await createTestUser(app, { phoneNumber: '+15559990002' });
 
       const response = await app.inject({
         method: 'POST',
         url: '/v1/users/sign_in',
-        payload: { auth: { otp: { id: otpId, code: '000000' } } },
+        payload: { auth: { otp: { phone_number: '+15559990002', code: '000000' } } },
       });
 
       expect(response.statusCode).toBe(400);

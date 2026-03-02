@@ -37,5 +37,5 @@ export default defineAgent({
     session.generateReply({
       instructions: 'Greet the user and offer your assistance.',
     });
-  },
+  }
 });

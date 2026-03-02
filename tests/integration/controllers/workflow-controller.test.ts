@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { DBOS } from '@dbos-inc/dbos-sdk';
 import { container } from 'tsyringe';
 import { createDb, type Database } from '../../../src/db/index.js';
-import { StubSmsService } from '../../../src/services/sms-service.js';
+import { StubOtpProvider } from '../../../src/services/otp-provider.js';
 import { setupContainer } from '../../../src/config/container.js';
 import { buildApp } from '../../../src/app.js';
 import { cleanDatabase } from '../../helpers/db-cleaner.js';
@@ -16,7 +16,7 @@ let db: Database;
 
 beforeAll(async () => {
   db = createDb();
-  setupContainer({ db, smsService: new StubSmsService() });
+  setupContainer({ db, otpProvider: new StubOtpProvider() });
 
   const auth = env.DB_PASSWORD ? `${env.DB_USER}:${env.DB_PASSWORD}` : env.DB_USER;
   const dbUrl = `postgresql://${auth}@${env.DB_HOST}:${env.DB_PORT}/${env.DB_DATABASE}`;

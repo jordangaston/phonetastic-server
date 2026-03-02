@@ -11,7 +11,6 @@ export * from './calls';
 export * from './call-participants';
 export * from './call-settings';
 export * from './end-users';
-export * from './otps';
 export * from './voices';
 export * from './faqs';
 export * from './offerings';
