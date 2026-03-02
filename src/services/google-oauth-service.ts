@@ -54,7 +54,7 @@ export class StubGoogleOAuthService implements GoogleOAuthService {
   }
 }
 
-const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar';
+const CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.events.freebusy'];
 
 /**
  * Google OAuth service backed by the google-auth-library SDK.
@@ -77,7 +77,7 @@ export class RealGoogleOAuthService implements GoogleOAuthService {
   /** {@inheritDoc GoogleOAuthService.getAuthorizationUrl} */
   getAuthorizationUrl(state: string): string {
     return this.client.generateAuthUrl({
-      scope: [CALENDAR_SCOPE],
+      scope: CALENDAR_SCOPES,
       access_type: 'offline',
       state,
     });

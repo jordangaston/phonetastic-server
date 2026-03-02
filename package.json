@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "tunnel": "ngrok http --url=${NGROK_DOMAIN:-localhost} ${PORT:-3333}"
   },
   "dependencies": {
     "@boundaryml/baml": "^0.219.0",

@@ -66,33 +66,56 @@ if ! db_exists; then
   $PSQL_ADMIN -c "CREATE DATABASE $DB_DATABASE OWNER $DB_USER;"
 fi
 
-# ── 4. Install packages ────────────────────────────────────────────────────────
+# ── 4. Ngrok ───────────────────────────────────────────────────────────────────
+
+if ! command -v ngrok &>/dev/null; then
+  log "Installing ngrok via Homebrew..."
+  brew install ngrok
+fi
+
+NGROK_AUTHTOKEN="${NGROK_AUTHTOKEN:-$(parse_env NGROK_AUTHTOKEN)}"
+
+if [ -z "$NGROK_AUTHTOKEN" ] || [ "$NGROK_AUTHTOKEN" = "your-ngrok-authtoken" ]; then
+  log "NOTICE: NGROK_AUTHTOKEN is not set. Skipping ngrok auth."
+  log "  To set up the tunnel, add your token from https://dashboard.ngrok.com/get-started/your-authtoken"
+  log "  and claim a free static domain at https://dashboard.ngrok.com/cloud-edge/domains"
+else
+  log "Configuring ngrok authtoken..."
+  ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+fi
+
+# ── 5. Install packages ────────────────────────────────────────────────────────
 
 log "Installing npm packages..."
 cd "$ROOT_DIR"
 npm install
 
-# ── 5. Generate BAML client ────────────────────────────────────────────────────
+# ── 6. Generate BAML client ────────────────────────────────────────────────────
 
 log "Generating BAML client..."
 npx baml-cli generate
 
-# ── 6. Drizzle migrations ──────────────────────────────────────────────────────
+# ── 7. Drizzle migrations ──────────────────────────────────────────────────────
 
 log "Running Drizzle migrations..."
 npm run db:migrate
 
-# ── 7. DBOS migrations ─────────────────────────────────────────────────────────
+# ── 8. DBOS migrations ─────────────────────────────────────────────────────────
 
 log "Running DBOS migrations..."
 npx dbos migrate
 
-# ── 8. Build ───────────────────────────────────────────────────────────────────
+# ── 9. Build ───────────────────────────────────────────────────────────────────
 
 log "Building application..."
 npm run build
 
-# ── 9. Start ───────────────────────────────────────────────────────────────────
+# ── 10. Tunnel ──────────────────────────────────────────────────────────────────
+
+log "Starting ngrok tunnel..."
+npm run tunnel
+
+# ── 11. Start ──────────────────────────────────────────────────────────────────
 
 log "Starting application..."
 npm start
