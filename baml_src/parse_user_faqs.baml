@@ -4,7 +4,7 @@ class UserFaq {
 }
 
 function ParseUserFaqs(text: string) -> UserFaq[] {
-  client GPT5Nano
+  client GPT4_1Nano
   prompt #"
     {{ _.role("system") }}
     <instructions>

@@ -16,6 +16,15 @@ client<llm> GPT5Nano {
   }
 }
 
+client<llm> GPT4_1Nano {
+  provider openai
+  retry_policy Exponential
+  options {
+    model "gpt-4.1-nano"
+    api_key env.OPENAI_API_KEY
+  }
+}
+
 client<llm> GPT5Mini {
   provider openai
   retry_policy Exponential
