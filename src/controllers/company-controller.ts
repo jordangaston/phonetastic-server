@@ -12,7 +12,6 @@ import type { Database } from '../db/index.js';
 import {
   formatOperationHoursText,
   formatOfferingsText,
-  formatFaqsText,
 } from '../lib/format-company-text.js';
 
 interface PatchCompanyBody {
@@ -22,7 +21,7 @@ interface PatchCompanyBody {
     website?: string;
     email?: string;
     operation_hours_text?: string;
-    faqs_text?: string;
+    faqs?: Array<{ question: string; answer: string }>;
     offerings?: Array<{
       type: 'product' | 'service';
       name: string;
@@ -82,8 +81,8 @@ export async function companyController(app: FastifyInstance): Promise<void> {
           await saveOperationHours(id, input.operation_hours_text, tx);
         }
 
-        if (input.faqs_text != null) {
-          await saveFaqs(id, input.faqs_text, tx);
+        if (input.faqs != null) {
+          await saveFaqs(id, input.faqs, tx);
         }
 
         if (input.offerings != null) {
@@ -114,12 +113,15 @@ export async function companyController(app: FastifyInstance): Promise<void> {
     }
   }
 
-  async function saveFaqs(companyId: number, text: string, tx: any) {
-    const parsed = await b.ParseUserFaqs(text);
+  async function saveFaqs(
+    companyId: number,
+    items: Array<{ question: string; answer: string }>,
+    tx: any,
+  ) {
     await faqRepo.deleteByCompanyId(companyId, tx);
-    if (parsed.length > 0) {
+    if (items.length > 0) {
       await faqRepo.createMany(
-        parsed.map((f) => ({ companyId, question: f.question, answer: f.answer })),
+        items.map((f) => ({ companyId, question: f.question, answer: f.answer })),
         tx,
       );
     }
@@ -191,6 +193,5 @@ function formatCompany(c: any) {
     })),
     operation_hours_text: formatOperationHoursText(c.operationHours),
     offerings_text: formatOfferingsText(c.offerings),
-    faqs_text: formatFaqsText(c.faqs),
   };
 }

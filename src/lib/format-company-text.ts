@@ -12,11 +12,6 @@ interface OfferingRow {
   priceCurrency?: string | null;
 }
 
-interface FaqRow {
-  question: string;
-  answer: string;
-}
-
 /**
  * Formats structured operation hours into human-readable text.
  * Groups consecutive days with identical times into ranges.
@@ -69,18 +64,6 @@ export function formatOfferingsText(offerings: OfferingRow[]): string {
     }
     return o.name;
   }).join('\n');
-}
-
-/**
- * Formats structured FAQs into human-readable Q&A text.
- *
- * @param faqs - Array of FAQ rows.
- * @returns Multi-line string with Q/A pairs separated by blank lines.
- */
-export function formatFaqsText(faqs: FaqRow[]): string {
-  if (faqs.length === 0) return '';
-
-  return faqs.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
 }
 
 /**

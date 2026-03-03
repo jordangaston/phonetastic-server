@@ -110,9 +110,3 @@ export interface RankedPages {
   offering_urls: string[]
   
 }
-
-export interface UserFaq {
-  question: string
-  answer: string
-  
-}
