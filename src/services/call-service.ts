@@ -24,7 +24,7 @@ export class CallService {
     @inject('BotRepository') private botRepo: BotRepository,
     @inject('LiveKitService') private livekitService: LiveKitService,
     @inject('EndUserRepository') private endUserRepo: EndUserRepository,
-  ) {}
+  ) { }
 
   /**
    * Creates a test call for the authenticated user.
@@ -92,8 +92,8 @@ export class CallService {
     const toPhoneNumber = await this.phoneNumberRepo.findByE164(toE164);
     if (!toPhoneNumber) throw new BadRequestError('Destination phone number not found');
 
-    const user = await this.userRepo.findByCompanyId(toPhoneNumber.companyId!);
-    if (!user) throw new BadRequestError('No user found for company');
+    const user = await this.userRepo.findByPhoneNumberId(toPhoneNumber.id);
+    if (!user) throw new BadRequestError('No user found for phone number');
 
     const bot = await this.botRepo.findByUserId(user.id);
     if (!bot) throw new BadRequestError('No bot found for user');
@@ -106,18 +106,18 @@ export class CallService {
 
       let endUser = await this.endUserRepo.findByPhoneNumberId(fromPhoneNumber.id, tx);
       if (!endUser) {
-        endUser = await this.endUserRepo.create({ phoneNumberId: fromPhoneNumber.id, companyId: toPhoneNumber.companyId! }, tx);
+        endUser = await this.endUserRepo.create({ phoneNumberId: fromPhoneNumber.id, companyId: user.companyId! }, tx);
       }
 
       const call = await this.callRepo.create({
         externalCallId,
-        companyId: toPhoneNumber.companyId!,
+        companyId: user.companyId!,
         fromPhoneNumberId: fromPhoneNumber.id,
         toPhoneNumberId: toPhoneNumber.id,
         state: 'connected',
       }, tx);
-      await this.participantRepo.create({ callId: call.id, type: 'bot', state: 'connected', botId: bot.id, companyId: toPhoneNumber.companyId! }, tx);
-      await this.participantRepo.create({ callId: call.id, type: 'end_user', state: 'connected', endUserId: endUser.id, companyId: toPhoneNumber.companyId! }, tx);
+      await this.participantRepo.create({ callId: call.id, type: 'bot', state: 'connected', botId: bot.id, companyId: user.companyId! }, tx);
+      await this.participantRepo.create({ callId: call.id, type: 'end_user', state: 'connected', endUserId: endUser.id, companyId: user.companyId! }, tx);
     });
   }
 
@@ -136,8 +136,10 @@ export class CallService {
     const participant = await this.participantRepo.findByCallIdAndType(call.id, 'agent');
     if (!participant) throw new BadRequestError('Agent participant not found');
 
-    await this.callRepo.updateState(call.id, 'connected');
-    await this.participantRepo.updateState(participant.id, 'connected');
+    await this.db.transaction(async (tx) => {
+      await this.callRepo.updateState(call.id, 'connected', tx);
+      await this.participantRepo.updateState(participant.id, 'connected', tx);
+    });
   }
 
   private async createParticipants(callId: number, userId: number, botId: number, companyId: number, tx: Transaction) {

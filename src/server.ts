@@ -14,8 +14,8 @@ let agentServer: AgentServer | undefined;
 
 async function shutdown(signal: string) {
   console.log(`${signal} received, shutting down`);
-  await app.close();
   if (agentServer) await agentServer.close();
+  await app.close();
   await DBOS.shutdown();
   process.exit(0);
 }

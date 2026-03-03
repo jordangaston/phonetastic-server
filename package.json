@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "setup": "bash scripts/setup.sh",
-    "dev": "tsx watch src/server.ts",
+    "kill-agents": "pkill -9 -f job_proc_lazy_main || true",
+    "dev": "npm run kill-agents && tsx watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
     "test": "vitest run",

@@ -39,6 +39,23 @@ export interface LiveKitService {
    * @returns Resolves when the dispatch is accepted.
    */
   dispatchAgent(roomName: string): Promise<void>;
+
+  /**
+   * Removes a participant from a room by identity, triggering a SIP BYE for SIP participants.
+   *
+   * @param roomName - The LiveKit room name.
+   * @param identity - The participant identity to remove.
+   * @returns Resolves when the participant is removed.
+   */
+  removeParticipant(roomName: string, identity: string): Promise<void>;
+
+  /**
+   * Deletes a LiveKit room, disconnecting all participants including SIP callers.
+   *
+   * @param roomName - The LiveKit room name to delete.
+   * @returns Resolves when the room is deleted.
+   */
+  deleteRoom(roomName: string): Promise<void>;
 }
 
 /**
@@ -68,6 +85,13 @@ export class StubLiveKitService implements LiveKitService {
 
   async dispatchAgent(roomName: string): Promise<void> {
     this.dispatches.push(roomName);
+  }
+
+  async removeParticipant(_roomName: string, _identity: string): Promise<void> {}
+
+  async deleteRoom(roomName: string): Promise<void> {
+    const idx = this.createdRooms.indexOf(roomName);
+    if (idx !== -1) this.createdRooms.splice(idx, 1);
   }
 }
 
@@ -122,6 +146,16 @@ export class LiveKitServiceImpl implements LiveKitService {
     const httpUrl = this.url.replace('wss://', 'https://').replace('ws://', 'http://');
     const client = new AgentDispatchClient(httpUrl, this.apiKey, this.apiSecret);
     await client.createDispatch(roomName, AGENT_NAME);
+  }
+
+  /** {@inheritDoc LiveKitService.removeParticipant} */
+  async removeParticipant(roomName: string, identity: string): Promise<void> {
+    await this.roomService.removeParticipant(roomName, identity);
+  }
+
+  /** {@inheritDoc LiveKitService.deleteRoom} */
+  async deleteRoom(roomName: string): Promise<void> {
+    await this.roomService.deleteRoom(roomName);
   }
 
   /** {@inheritDoc LiveKitService.purchasePhoneNumber} */

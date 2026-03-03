@@ -2,25 +2,23 @@ import {
   type JobContext,
   type JobProcess,
   defineAgent,
+  log,
   voice,
 } from '@livekit/agents';
 import * as livekit from '@livekit/agents-plugin-livekit';
+import { ParticipantKind } from '@livekit/rtc-node';
 import * as silero from '@livekit/agents-plugin-silero';
 import { DBOSClient } from '@dbos-inc/dbos-sdk';
 import 'dotenv/config';
 import { setupContainer, container } from './config/container.js';
 import { buildDbUrl } from './db/index.js';
 import type { CallService } from './services/call-service.js';
+import type { LiveKitService } from './services/livekit-service.js';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
 
 function isTestCall(roomName: string): boolean {
   return roomName.startsWith('test-');
-}
-
-function parseInboundMetadata(metadata: string): { from: string; to: string } {
-  const parsed = JSON.parse(metadata) as { from: string; to: string };
-  return { from: parsed.from, to: parsed.to };
 }
 
 export default defineAgent({
@@ -32,12 +30,8 @@ export default defineAgent({
   entry: async (ctx: JobContext) => {
     const vad = ctx.proc.userData.vad! as silero.VAD;
     const callService = container.resolve<CallService>('CallService');
-    const roomName = ctx.room.name ?? '';
-
-    if (!isTestCall(roomName)) {
-      const { from, to } = parseInboundMetadata(ctx.room.metadata ?? '{}');
-      await callService.initializeInboundCall(roomName, from, to);
-    }
+    const livekitService = container.resolve<LiveKitService>('LiveKitService');
+    const roomName = ctx.job.room?.name ?? '';
 
     const agent = new voice.Agent({
       instructions: 'You are a helpful phone assistant. Answer questions clearly and concisely.',
@@ -54,14 +48,37 @@ export default defineAgent({
     await session.start({ agent, room: ctx.room });
     await ctx.connect();
 
-    await ctx.waitForParticipant();
+    log().info({ roomName }, 'Call connected');
 
-    if (isTestCall(roomName)) {
-      await callService.onParticipantJoined(roomName);
+    if (!isTestCall(roomName)) {
+      try {
+        const caller = await ctx.waitForParticipant();
+        log().info({ caller }, 'Caller found');
+        const from = caller.attributes['sip.phoneNumber'] ?? '';
+        const to = caller.attributes['sip.trunkPhoneNumber'] ?? '';
+        log().info({ from, to }, 'Initializing inbound call');
+        await callService.initializeInboundCall(roomName, from, to);
+        log().info('Inbound call initialized');
+      } catch (err: any) {
+        log().error({ err }, 'Failed to initialize inbound call');
+        await session.generateReply({
+          instructions: `Say "${err.message ?? 'Something went wrong'}"`,
+        }).waitForPlayout();
+        session.shutdown();
+        await ctx.room.disconnect();
+        const sipParticipant = [...ctx.room.remoteParticipants.values()]
+          .find(p => p.kind === ParticipantKind.SIP);
+        if (sipParticipant) {
+          log().info({ identity: sipParticipant.identity }, 'Removing SIP participant');
+          await livekitService.removeParticipant(roomName, sipParticipant.identity);
+        }
+        return;
+      }
     }
 
+    log().info('Generating initial reply');
     session.generateReply({
-      instructions: 'Greet the user and offer your assistance.',
+      instructions: 'Say "Hi, I\'m Kate, your virtual assistant. How can I help you today?"',
     });
   }
 });

@@ -16,3 +16,4 @@
 7. CRITICAL: everything you do must be tested before you continue to the next step. This includes the project setup, the code you write, database schema changes, databse setup, etc.  DO NOT SKIP THIS STEP.
 8. **Use transactions for multi-table writes:** When a service method inserts or updates rows across multiple tables, wrap all writes in a `db.transaction()` call and pass the `tx` to each repository method. This ensures atomicity — if any write fails, all changes are rolled back.
 9. **All list APIs must be paginated:** Use cursor-based pagination. The pagination token must be called `page_token` everywhere — query parameter, response field, and internal variable names. No exceptions.
+10. **LiveKit changes require doc reference:** Before making any LiveKit-related changes, fetch and read `https://docs.livekit.io/llms.txt` to ensure correct API usage.

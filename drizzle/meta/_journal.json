@@ -71,6 +71,20 @@
       "when": 1772427444033,
       "tag": "0009_fancy_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772500000000,
+      "tag": "0010_end_users_phone_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772500000001,
+      "tag": "0011_end_users_phone_number",
+      "breakpoints": true
     }
   ]
 }
