@@ -20,7 +20,7 @@ $ pnpm add @boundaryml/baml
 
 import type { Image, Audio, Pdf, Video } from "@boundaryml/baml"
 import type { Checked, Check } from "./types.js"
-import type {  CompanyAddress,  CompanyInfo,  CuratedOffersAndFAQs,  ExtractedFaq,  ExtractedOffering,  ExtractedPrice,  OperationHour,  PageSummary,  RankedPages } from "./types.js"
+import type {  CompanyAddress,  CompanyInfo,  CuratedOffersAndFAQs,  ExtractedFaq,  ExtractedOffering,  ExtractedPrice,  OperationHour,  PageSummary,  RankedPages,  UserFaq } from "./types.js"
 import type * as types from "./types.js"
 
 /******************************************************************************
@@ -81,5 +81,9 @@ export namespace partial_types {
     export interface RankedPages {
       faq_urls: string[]
       offering_urls: string[]
+    }
+    export interface UserFaq {
+      question?: string | null
+      answer?: string | null
     }
 }

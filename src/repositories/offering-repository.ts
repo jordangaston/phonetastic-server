@@ -55,4 +55,14 @@ export class OfferingRepository {
       .from(offerings)
       .where(eq(offerings.companyId, companyId));
   }
+
+  /**
+   * Deletes all offerings for a company.
+   *
+   * @param companyId - The company whose offerings to delete.
+   * @param tx - Optional transaction to run within.
+   */
+  async deleteByCompanyId(companyId: number, tx?: Transaction) {
+    return (tx ?? this.db).delete(offerings).where(eq(offerings.companyId, companyId));
+  }
 }

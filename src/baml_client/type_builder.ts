@@ -45,12 +45,14 @@ export default class TypeBuilder {
     
     RankedPages: ClassViewer<'RankedPages', "faq_urls" | "offering_urls">;
     
+    UserFaq: ClassViewer<'UserFaq', "question" | "answer">;
+    
     
 
     constructor() {
         this.tb = new _TypeBuilder({
           classes: new Set([
-            "CompanyAddress","CompanyInfo","CuratedOffersAndFAQs","ExtractedFaq","ExtractedOffering","ExtractedPrice","OperationHour","PageSummary","RankedPages",
+            "CompanyAddress","CompanyInfo","CuratedOffersAndFAQs","ExtractedFaq","ExtractedOffering","ExtractedPrice","OperationHour","PageSummary","RankedPages","UserFaq",
           ]),
           enums: new Set([
             
@@ -92,6 +94,10 @@ export default class TypeBuilder {
         
         this.RankedPages = this.tb.classViewer("RankedPages", [
           "faq_urls","offering_urls",
+        ]);
+        
+        this.UserFaq = this.tb.classViewer("UserFaq", [
+          "question","answer",
         ]);
         
         

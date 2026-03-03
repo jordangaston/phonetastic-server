@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe';
+import { eq } from 'drizzle-orm';
 import { operationHours } from '../db/schema/operation-hours.js';
 import type { Database, Transaction } from '../db/index.js';
 
@@ -21,5 +22,15 @@ export class OperationHourRepository {
     tx?: Transaction,
   ) {
     return (tx ?? this.db).insert(operationHours).values(rows).returning();
+  }
+
+  /**
+   * Deletes all operation hours for a company.
+   *
+   * @param companyId - The company whose hours to delete.
+   * @param tx - Optional transaction to run within.
+   */
+  async deleteByCompanyId(companyId: number, tx?: Transaction) {
+    return (tx ?? this.db).delete(operationHours).where(eq(operationHours.companyId, companyId));
   }
 }

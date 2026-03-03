@@ -39,4 +39,14 @@ export class FaqRepository {
       .from(faqs)
       .where(eq(faqs.companyId, companyId));
   }
+
+  /**
+   * Deletes all FAQs for a company.
+   *
+   * @param companyId - The company whose FAQs to delete.
+   * @param tx - Optional transaction to run within.
+   */
+  async deleteByCompanyId(companyId: number, tx?: Transaction) {
+    return (tx ?? this.db).delete(faqs).where(eq(faqs.companyId, companyId));
+  }
 }
