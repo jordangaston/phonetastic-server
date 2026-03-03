@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { eq } from 'drizzle-orm';
 import { calls } from '../db/schema/calls.js';
+import type { CallState } from '../db/schema/enums.js';
 import type { Database, Transaction } from '../db/index.js';
 
 /**
@@ -23,7 +24,7 @@ export class CallRepository {
     fromPhoneNumberId: number;
     toPhoneNumberId: number;
     testMode?: boolean;
-    state?: 'waiting' | 'connecting' | 'connected' | 'finished' | 'failed';
+    state?: CallState;
   }, tx?: Transaction) {
     const [row] = await (tx ?? this.db).insert(calls).values(data).returning();
     return row;
@@ -60,7 +61,7 @@ export class CallRepository {
    * @param state - The new call state.
    * @param tx - Optional transaction to run within.
    */
-  async updateState(id: number, state: 'waiting' | 'connecting' | 'connected' | 'finished' | 'failed', tx?: Transaction): Promise<void> {
+  async updateState(id: number, state: CallState, tx?: Transaction): Promise<void> {
     await (tx ?? this.db).update(calls).set({ state }).where(eq(calls.id, id));
   }
 }

@@ -7,6 +7,7 @@ export const callStateEnum = pgEnum('call_state', [
   'finished',
   'failed',
 ]);
+export type CallState = (typeof callStateEnum.enumValues)[number];
 
 export const callDirectionEnum = pgEnum('call_direction', [
   'inbound',
@@ -18,6 +19,7 @@ export const participantTypeEnum = pgEnum('participant_type', [
   'bot',
   'end_user',
 ]);
+export type ParticipantType = (typeof participantTypeEnum.enumValues)[number];
 
 export const calendarProviderEnum = pgEnum('calendar_provider', [
   'google',

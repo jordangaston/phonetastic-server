@@ -1,10 +1,8 @@
 import { injectable, inject } from 'tsyringe';
 import { and, eq } from 'drizzle-orm';
 import { callParticipants } from '../db/schema/call-participants.js';
+import type { CallState, ParticipantType } from '../db/schema/enums.js';
 import type { Database, Transaction } from '../db/index.js';
-
-type ParticipantType = 'agent' | 'bot' | 'end_user';
-type CallState = 'waiting' | 'connecting' | 'connected' | 'finished' | 'failed';
 
 /**
  * Data access layer for call participants.
