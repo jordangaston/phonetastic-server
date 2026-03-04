@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { injectable, inject } from 'tsyringe';
+import type { DBOSClient } from '@dbos-inc/dbos-sdk';
 import { CallRepository } from '../repositories/call-repository.js';
 import { CallParticipantRepository } from '../repositories/call-participant-repository.js';
 import { CallTranscriptRepository } from '../repositories/call-transcript-repository.js';
@@ -11,6 +12,8 @@ import { EndUserRepository } from '../repositories/end-user-repository.js';
 import type { Database, Transaction } from '../db/index.js';
 import type { LiveKitService } from './livekit-service.js';
 import { BadRequestError } from '../lib/errors.js';
+
+const SUMMARIZE_CALL_QUEUE = 'summarize-call';
 
 /**
  * Orchestrates call creation.
@@ -28,6 +31,7 @@ export class CallService {
     @inject('BotRepository') private botRepo: BotRepository,
     @inject('LiveKitService') private livekitService: LiveKitService,
     @inject('EndUserRepository') private endUserRepo: EndUserRepository,
+    @inject('DBOSClient') private dbosClient: Promise<DBOSClient>,
   ) { }
 
   /**
@@ -166,6 +170,7 @@ export class CallService {
    * @param externalCallId - The LiveKit room name for this call.
    * @param state - The terminal state to set on the participant and call.
    * @param failureReason - Human-readable failure reason, if state is `failed`.
+   * @postcondition If the call transitions to a terminal state, the `SummarizeCallTranscript` workflow is enqueued.
    * @throws {BadRequestError} If the end user participant cannot be found.
    * @boundary externalCallId must match an existing room name; state must be a terminal CallState.
    */
@@ -177,12 +182,14 @@ export class CallService {
     const endUser = participants.find(p => p.type === 'end_user');
     if (!endUser) throw new BadRequestError('End user participant not found');
 
+    const isCallTerminal = this.allTerminalExcept(participants, endUser.id);
     await this.db.transaction(async (tx) => {
       await this.participantRepo.updateState(endUser.id, state, tx, failureReason);
-      if (this.allTerminalExcept(participants, endUser.id)) {
+      if (isCallTerminal) {
         await this.callRepo.updateState(call.id, state, tx, failureReason);
       }
     });
+    if (isCallTerminal) await this.enqueueCallSummary(call.id);
   }
 
   /**
@@ -193,6 +200,7 @@ export class CallService {
    * @param externalCallId - The LiveKit room name for this call.
    * @param state - The terminal state to set on the participant and call.
    * @param failureReason - Human-readable failure reason, if state is `failed`.
+   * @postcondition If the call transitions to a terminal state, the `SummarizeCallTranscript` workflow is enqueued.
    * @throws {BadRequestError} If the bot participant cannot be found.
    * @boundary externalCallId must match an existing room name; state must be a terminal CallState.
    */
@@ -204,12 +212,22 @@ export class CallService {
     const bot = participants.find(p => p.type === 'bot');
     if (!bot) throw new BadRequestError('Bot participant not found');
 
+    const isCallTerminal = this.allTerminalExcept(participants, bot.id);
     await this.db.transaction(async (tx) => {
       await this.participantRepo.updateState(bot.id, state, tx, failureReason);
-      if (this.allTerminalExcept(participants, bot.id)) {
+      if (isCallTerminal) {
         await this.callRepo.updateState(call.id, state, tx, failureReason);
       }
     });
+    if (isCallTerminal) await this.enqueueCallSummary(call.id);
+  }
+
+  private async enqueueCallSummary(callId: number): Promise<void> {
+    const client = await this.dbosClient;
+    await client.enqueue(
+      { workflowClassName: 'SummarizeCallTranscript', workflowName: 'run', queueName: SUMMARIZE_CALL_QUEUE },
+      callId,
+    );
   }
 
   /**

@@ -8,7 +8,6 @@ import {
 } from '@livekit/agents';
 import * as livekit from '@livekit/agents-plugin-livekit';
 import * as silero from '@livekit/agents-plugin-silero';
-import type { DBOSClient } from '@dbos-inc/dbos-sdk';
 import 'dotenv/config';
 import { setupContainer, container } from './config/container.js';
 import type { CallService } from './services/call-service.js';
@@ -17,7 +16,6 @@ import { RoomEvent, DisconnectReason } from '@livekit/rtc-node';
 import { getJobContext } from '@livekit/agents';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
-const SUMMARIZE_CALL_QUEUE = 'summarize-call';
 
 function isTestCall(roomName: string): boolean {
   return roomName.startsWith('test-');
@@ -104,14 +102,6 @@ export default defineAgent({
     session.once(voice.AgentSessionEventTypes.Close, async (ev: voice.CloseEvent) => {
       const { state, failureReason } = closeReasonToState(ev);
       log().info({ state, failureReason }, 'Session closed');
-      const call = await callService.findByExternalCallId(roomName);
-      if (call) {
-        const dbosClient = await container.resolve<Promise<DBOSClient>>('DBOSClient');
-        await dbosClient.enqueue(
-          { workflowClassName: 'SummarizeCallTranscript', workflowName: 'run', queueName: SUMMARIZE_CALL_QUEUE },
-          call.id,
-        );
-      }
       await callService.onSessionClosed(roomName, state, failureReason);
       await livekitService.deleteRoom(roomName);
       ctx.shutdown();
