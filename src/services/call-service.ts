@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { injectable, inject } from 'tsyringe';
-import type { DBOSClient } from '@dbos-inc/dbos-sdk';
 import { CallRepository } from '../repositories/call-repository.js';
 import { CallParticipantRepository } from '../repositories/call-participant-repository.js';
 import { CallTranscriptRepository } from '../repositories/call-transcript-repository.js';
@@ -12,6 +11,8 @@ import { EndUserRepository } from '../repositories/end-user-repository.js';
 import type { Database, Transaction } from '../db/index.js';
 import type { LiveKitService } from './livekit-service.js';
 import { BadRequestError } from '../lib/errors.js';
+import { DBOSClientFactory } from './dbos-client-factory.js';
+
 
 const SUMMARIZE_CALL_QUEUE = 'summarize-call';
 
@@ -31,7 +32,7 @@ export class CallService {
     @inject('BotRepository') private botRepo: BotRepository,
     @inject('LiveKitService') private livekitService: LiveKitService,
     @inject('EndUserRepository') private endUserRepo: EndUserRepository,
-    @inject('DBOSClient') private dbosClient: Promise<DBOSClient>,
+    @inject('DBOSClientFactory') private dbosClientFactory: DBOSClientFactory,
   ) { }
 
   /**
@@ -223,7 +224,7 @@ export class CallService {
   }
 
   private async enqueueCallSummary(callId: number): Promise<void> {
-    const client = await this.dbosClient;
+    const client = await this.dbosClientFactory.getInstance();
     await client.enqueue(
       { workflowClassName: 'SummarizeCallTranscript', workflowName: 'run', queueName: SUMMARIZE_CALL_QUEUE },
       callId,

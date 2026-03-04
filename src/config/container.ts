@@ -29,8 +29,7 @@ import { OtpService } from '../services/otp-service.js';
 import { UserService } from '../services/user-service.js';
 import { PhoneNumberService } from '../services/phone-number-service.js';
 import { CallService } from '../services/call-service.js';
-import { DBOSClient } from '@dbos-inc/dbos-sdk';
-import { buildDbUrl } from '../db/index.js';
+import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
 
 function createOtpProvider(): OtpProvider {
@@ -72,7 +71,7 @@ function createFirecrawlService(): FirecrawlService {
  * @postcondition All repositories, services, and infrastructure are registered.
  * @param overrides - Optional dependency overrides for testing.
  * @param overrides.db - A pre-configured Database instance.
- * @param overrides.dbosClient - A pre-configured DBOSClient promise.
+ * @param overrides.dbosClientFactory - A pre-configured DBOSClientFactory instance.
  * @param overrides.otpProvider - A custom OtpProvider implementation.
  * @param overrides.livekitService - A custom LiveKitService implementation.
  * @param overrides.googleOAuthService - A custom GoogleOAuthService implementation.
@@ -80,7 +79,7 @@ function createFirecrawlService(): FirecrawlService {
  */
 export function setupContainer(overrides?: {
   db?: Database;
-  dbosClient?: Promise<DBOSClient>;
+  dbosClientFactory?: DBOSClientFactory;
   otpProvider?: OtpProvider;
   livekitService?: LiveKitService;
   googleOAuthService?: GoogleOAuthService;
@@ -88,7 +87,7 @@ export function setupContainer(overrides?: {
 }): void {
   const db = overrides?.db ?? createDb();
   container.registerInstance<Database>('Database', db);
-  container.registerInstance<Promise<DBOSClient>>('DBOSClient', overrides?.dbosClient ?? DBOSClient.create(buildDbUrl()));
+  container.registerInstance<DBOSClientFactory>('DBOSClientFactory', overrides?.dbosClientFactory ?? new DBOSClientFactory());
 
   container.registerInstance<OtpProvider>('OtpProvider', overrides?.otpProvider ?? createOtpProvider());
   container.registerInstance<LiveKitService>('LiveKitService', overrides?.livekitService ?? createLiveKitService());

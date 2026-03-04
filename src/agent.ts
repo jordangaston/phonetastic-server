@@ -87,7 +87,7 @@ export default defineAgent({
       stt: 'deepgram/nova-3',
       llm: 'openai/gpt-4o',
       tts: `cartesia/sonic:${CARTESIA_VOICE_ID}`,
-      turnDetection: new livekit.turnDetector.EnglishModel(),
+      turnDetection: new livekit.turnDetector.MultilingualModel(),
     });
 
     let transcriptSequence = 0;

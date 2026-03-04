@@ -1,8 +1,10 @@
-import { DBOS } from '@dbos-inc/dbos-sdk';
+import { DBOS, WorkflowQueue } from '@dbos-inc/dbos-sdk';
 import { container } from 'tsyringe';
 import { b } from '../baml_client/index.js';
 import type { CallTranscriptRepository } from '../repositories/call-transcript-repository.js';
 import type { CallTranscriptEntryRepository } from '../repositories/call-transcript-entry-repository.js';
+
+export const summarizeCallQueue = new WorkflowQueue('summarize-call');
 
 const RETRY_CONFIG = {
   retriesAllowed: true,

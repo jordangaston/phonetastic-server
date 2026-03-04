@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CallService } from '../../../src/services/call-service.js';
 import { BadRequestError } from '../../../src/lib/errors.js';
 
+const mockEnqueue = vi.fn().mockResolvedValue(undefined);
+const mockDbosClientFactory = { getInstance: vi.fn().mockResolvedValue({ enqueue: mockEnqueue }) };
+
 describe('CallService', () => {
   let db: any;
   let callRepo: any;
@@ -13,7 +16,6 @@ describe('CallService', () => {
   let botRepo: any;
   let livekitService: any;
   let endUserRepo: any;
-  let dbosClient: any;
   let service: CallService;
 
   beforeEach(() => {
@@ -32,8 +34,9 @@ describe('CallService', () => {
       deleteRoom: vi.fn().mockResolvedValue(undefined),
     };
     endUserRepo = { findByPhoneNumberId: vi.fn(), create: vi.fn() };
-    dbosClient = Promise.resolve({ enqueue: vi.fn().mockResolvedValue(undefined) });
-    service = new CallService(db, callRepo, participantRepo, transcriptRepo, transcriptEntryRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo, dbosClient);
+    mockEnqueue.mockClear();
+    mockDbosClientFactory.getInstance.mockClear();
+    service = new CallService(db, callRepo, participantRepo, transcriptRepo, transcriptEntryRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo, mockDbosClientFactory as any);
   });
 
   describe('createCall', () => {
@@ -169,9 +172,6 @@ describe('CallService', () => {
     });
 
     it('marks the call and enqueues summary when all other participants are terminal', async () => {
-      const enqueue = vi.fn().mockResolvedValue(undefined);
-      dbosClient = Promise.resolve({ enqueue });
-      service = new CallService(db, callRepo, participantRepo, transcriptRepo, transcriptEntryRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo, dbosClient);
       callRepo.findByExternalCallId.mockResolvedValue({ id: 99 });
       participantRepo.findAllByCallId.mockResolvedValue([
         { id: 10, type: 'bot', state: 'finished' },
@@ -181,13 +181,10 @@ describe('CallService', () => {
       await service.onEndUserDisconnected('room-1', 'failed', 'SIP trunk failure');
 
       expect(callRepo.updateState).toHaveBeenCalledWith(99, 'failed', expect.anything(), 'SIP trunk failure');
-      expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ workflowClassName: 'SummarizeCallTranscript' }), 99);
+      expect(mockEnqueue).toHaveBeenCalledWith(expect.objectContaining({ workflowClassName: 'SummarizeCallTranscript' }), 99);
     });
 
     it('does not mark the call or enqueue summary when other participants are still active', async () => {
-      const enqueue = vi.fn().mockResolvedValue(undefined);
-      dbosClient = Promise.resolve({ enqueue });
-      service = new CallService(db, callRepo, participantRepo, transcriptRepo, transcriptEntryRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo, dbosClient);
       callRepo.findByExternalCallId.mockResolvedValue({ id: 99 });
       participantRepo.findAllByCallId.mockResolvedValue([
         { id: 10, type: 'bot', state: 'connected' },
@@ -197,7 +194,7 @@ describe('CallService', () => {
       await service.onEndUserDisconnected('room-1', 'finished');
 
       expect(callRepo.updateState).not.toHaveBeenCalled();
-      expect(enqueue).not.toHaveBeenCalled();
+      expect(mockEnqueue).not.toHaveBeenCalled();
     });
   });
 
@@ -238,9 +235,6 @@ describe('CallService', () => {
     });
 
     it('marks the call and enqueues summary when all other participants are terminal', async () => {
-      const enqueue = vi.fn().mockResolvedValue(undefined);
-      dbosClient = Promise.resolve({ enqueue });
-      service = new CallService(db, callRepo, participantRepo, transcriptRepo, transcriptEntryRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo, dbosClient);
       callRepo.findByExternalCallId.mockResolvedValue({ id: 99 });
       participantRepo.findAllByCallId.mockResolvedValue([
         { id: 10, type: 'bot', state: 'connected' },
@@ -250,13 +244,10 @@ describe('CallService', () => {
       await service.onSessionClosed('room-1', 'finished');
 
       expect(callRepo.updateState).toHaveBeenCalledWith(99, 'finished', expect.anything(), undefined);
-      expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ workflowClassName: 'SummarizeCallTranscript' }), 99);
+      expect(mockEnqueue).toHaveBeenCalledWith(expect.objectContaining({ workflowClassName: 'SummarizeCallTranscript' }), 99);
     });
 
     it('does not mark the call or enqueue summary when other participants are still active', async () => {
-      const enqueue = vi.fn().mockResolvedValue(undefined);
-      dbosClient = Promise.resolve({ enqueue });
-      service = new CallService(db, callRepo, participantRepo, transcriptRepo, transcriptEntryRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo, dbosClient);
       callRepo.findByExternalCallId.mockResolvedValue({ id: 99 });
       participantRepo.findAllByCallId.mockResolvedValue([
         { id: 10, type: 'bot', state: 'connected' },
@@ -266,7 +257,7 @@ describe('CallService', () => {
       await service.onSessionClosed('room-1', 'finished');
 
       expect(callRepo.updateState).not.toHaveBeenCalled();
-      expect(enqueue).not.toHaveBeenCalled();
+      expect(mockEnqueue).not.toHaveBeenCalled();
     });
   });
 
