@@ -46,6 +46,55 @@ export class CallService {
   }
 
   /**
+   * Returns a paginated list of calls for the authenticated user's company.
+   *
+   * @precondition The user must belong to a company.
+   * @postcondition Returns calls ordered by id in the requested direction with optional transcript expansion.
+   * @param userId - The authenticated user's id.
+   * @param opts - Pagination, sorting, and expansion options.
+   * @param opts.pageToken - Call id to start after (exclusive). Omit for the first page.
+   * @param opts.limit - Maximum number of rows to return. Defaults to 20.
+   * @param opts.sort - Sort direction by id: 'asc' or 'desc'. Defaults to 'desc'.
+   * @param opts.expand - Optional relations to include (e.g. ['transcript']).
+   * @returns An object with the calls array and optional transcript data.
+   * @throws {BadRequestError} If the user has no company.
+   */
+  async listCalls(userId: number, opts?: {
+    pageToken?: number;
+    limit?: number;
+    sort?: 'asc' | 'desc';
+    expand?: string[];
+  }) {
+    const user = await this.userRepo.findById(userId);
+    if (!user?.companyId) throw new BadRequestError('User has no company');
+
+    const rows = await this.callRepo.findAllByCompanyId(user.companyId, {
+      pageToken: opts?.pageToken,
+      limit: opts?.limit,
+      sort: opts?.sort,
+    });
+
+    const transcripts = await this.loadTranscriptExpands(rows, opts?.expand);
+    return { calls: rows, transcripts };
+  }
+
+  private async loadTranscriptExpands(
+    rows: { id: number }[],
+    expand?: string[],
+  ): Promise<Map<number, { id: number; summary: string | null; entries: any[] }> | undefined> {
+    if (!expand?.includes('transcript') || rows.length === 0) return undefined;
+
+    const map = new Map<number, { id: number; summary: string | null; entries: any[] }>();
+    await Promise.all(rows.map(async (call) => {
+      const transcript = await this.transcriptRepo.findByCallId(call.id);
+      if (!transcript) return;
+      const entries = await this.transcriptEntryRepo.findAllByTranscriptId(transcript.id);
+      map.set(call.id, { id: transcript.id, summary: transcript.summary, entries });
+    }));
+    return map;
+  }
+
+  /**
    * Creates a test call for the authenticated user.
    *
    * @precondition The user must belong to a company, have a phone number, and have a bot.

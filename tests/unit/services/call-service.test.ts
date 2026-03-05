@@ -20,10 +20,10 @@ describe('CallService', () => {
 
   beforeEach(() => {
     db = { transaction: vi.fn().mockImplementation(async (cb: any) => cb({})) };
-    callRepo = { create: vi.fn(), findByExternalCallId: vi.fn(), updateState: vi.fn().mockResolvedValue(undefined) };
+    callRepo = { create: vi.fn(), findByExternalCallId: vi.fn(), updateState: vi.fn().mockResolvedValue(undefined), findAllByCompanyId: vi.fn() };
     participantRepo = { create: vi.fn(), updateState: vi.fn().mockResolvedValue(undefined), findByCallIdAndType: vi.fn(), findAllByCallId: vi.fn() };
     transcriptRepo = { create: vi.fn().mockResolvedValue({ id: 1 }), findByCallId: vi.fn() };
-    transcriptEntryRepo = { create: vi.fn().mockResolvedValue(undefined) };
+    transcriptEntryRepo = { create: vi.fn().mockResolvedValue(undefined), findAllByTranscriptId: vi.fn() };
     userRepo = { findById: vi.fn(), findByCompanyId: vi.fn(), findByPhoneNumberId: vi.fn() };
     phoneNumberRepo = { findById: vi.fn(), findByE164: vi.fn(), create: vi.fn() };
     botRepo = { findByUserId: vi.fn() };
@@ -336,6 +336,65 @@ describe('CallService', () => {
       await service.saveTranscriptEntry('test-room', { role: 'user', text: 'Testing', sequenceNumber: 0 });
 
       expect(transcriptEntryRepo.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 3 }));
+    });
+  });
+
+  describe('listCalls', () => {
+    it('throws BadRequestError when user has no company', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: null });
+      await expect(service.listCalls(1)).rejects.toThrow(BadRequestError);
+    });
+
+    it('returns calls without transcripts when expand is omitted', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([{ id: 10 }, { id: 11 }]);
+
+      const result = await service.listCalls(1);
+
+      expect(result.calls).toHaveLength(2);
+      expect(result.transcripts).toBeUndefined();
+      expect(callRepo.findAllByCompanyId).toHaveBeenCalledWith(5, {
+        pageToken: undefined, limit: undefined, sort: undefined,
+      });
+    });
+
+    it('passes pagination and sort options to the repository', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([]);
+
+      await service.listCalls(1, { pageToken: 42, limit: 5, sort: 'asc' });
+
+      expect(callRepo.findAllByCompanyId).toHaveBeenCalledWith(5, {
+        pageToken: 42, limit: 5, sort: 'asc',
+      });
+    });
+
+    it('expands transcripts with entries when expand includes transcript', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([{ id: 10 }]);
+      transcriptRepo.findByCallId.mockResolvedValue({ id: 100, summary: 'A summary' });
+      transcriptEntryRepo.findAllByTranscriptId.mockResolvedValue([
+        { id: 1, text: 'Hello', sequenceNumber: 0 },
+      ]);
+
+      const result = await service.listCalls(1, { expand: ['transcript'] });
+
+      expect(result.transcripts).toBeDefined();
+      expect(result.transcripts!.get(10)).toEqual({
+        id: 100,
+        summary: 'A summary',
+        entries: [{ id: 1, text: 'Hello', sequenceNumber: 0 }],
+      });
+    });
+
+    it('skips transcript expansion for calls without a transcript', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([{ id: 10 }]);
+      transcriptRepo.findByCallId.mockResolvedValue(undefined);
+
+      const result = await service.listCalls(1, { expand: ['transcript'] });
+
+      expect(result.transcripts!.size).toBe(0);
     });
   });
 });
