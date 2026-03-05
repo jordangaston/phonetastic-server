@@ -8,6 +8,7 @@ import { buildApp } from './app.js';
 import { buildDbUrl } from './db/index.js';
 import { env } from './config/env.js';
 import { AGENT_NAME } from './services/livekit-service.js';
+import './workflows/summarize-call.js';
 
 let app: FastifyInstance;
 let agentServer: AgentServer | undefined;

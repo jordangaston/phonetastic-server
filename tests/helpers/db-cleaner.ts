@@ -12,6 +12,8 @@ export async function cleanDatabase(db: Database): Promise<void> {
   await db.execute(sql`
     TRUNCATE TABLE
       calendars,
+      call_transcript_entries,
+      call_transcripts,
       call_participants,
       call_settings,
       calls,
@@ -19,7 +21,6 @@ export async function cleanDatabase(db: Database): Promise<void> {
       bot_settings,
       bots,
       end_users,
-      otps,
       voices,
       skills,
       users,

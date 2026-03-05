@@ -16,4 +16,6 @@ export * from './faqs';
 export * from './offerings';
 export * from './addresses';
 export * from './operation-hours';
+export * from './call-transcripts';
+export * from './call-transcript-entries';
 export * from './relations';

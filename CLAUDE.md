@@ -17,3 +17,9 @@
 8. **Use transactions for multi-table writes:** When a service method inserts or updates rows across multiple tables, wrap all writes in a `db.transaction()` call and pass the `tx` to each repository method. This ensures atomicity — if any write fails, all changes are rolled back.
 9. **All list APIs must be paginated:** Use cursor-based pagination. The pagination token must be called `page_token` everywhere — query parameter, response field, and internal variable names. No exceptions.
 10. **LiveKit changes require doc reference:** Before making any LiveKit-related changes, fetch and read `https://docs.livekit.io/llms.txt` to ensure correct API usage.
+11. **DBOSClient API:** `DBOSClient` is the external-process API for enqueuing DBOS workflows. Key facts:
+    - Registered in the DI container as `Promise<DBOSClient>` via `container.registerInstance<Promise<DBOSClient>>('DBOSClient', DBOSClient.create(buildDbUrl()))`
+    - Resolve with `await container.resolve<Promise<DBOSClient>>('DBOSClient')`
+    - **Only method available**: `enqueue({ workflowClassName, workflowName, queueName }, ...args)` — there is NO `startWorkflow`
+    - The workflow class must be imported (side-effect import) in `server.ts` so DBOS registers it: `import './workflows/my-workflow.js'`
+    - Do NOT use `DBOS.startWorkflow()` from an agent process — that is only for in-process DBOS workers
