@@ -3,10 +3,14 @@ import { getTestDb } from '../helpers/test-app.js';
 import { voices } from '../../src/db/schema/voices.js';
 import { companies } from '../../src/db/schema/companies.js';
 import { skills } from '../../src/db/schema/skills.js';
+import { calls } from '../../src/db/schema/calls.js';
+import { callTranscripts } from '../../src/db/schema/call-transcripts.js';
 
 type VoiceRow = typeof voices.$inferSelect;
 type CompanyRow = typeof companies.$inferSelect;
 type SkillRow = typeof skills.$inferSelect;
+type CallRow = typeof calls.$inferSelect;
+type CallTranscriptRow = typeof callTranscripts.$inferSelect;
 
 export const voiceFactory = Factory.define<VoiceRow>(({ sequence }) => ({
   id: sequence,
@@ -50,6 +54,43 @@ export const skillFactory = Factory.define<SkillRow>(({ sequence }) => ({
     name: skill.name,
     settingsSchema: skill.settingsSchema,
     paramsSchema: skill.paramsSchema,
+  }).returning();
+  return row;
+});
+
+export const callFactory = Factory.define<CallRow>(({ sequence }) => ({
+  id: sequence,
+  externalCallId: `ext-${sequence}`,
+  companyId: 1,
+  fromPhoneNumberId: 1,
+  toPhoneNumberId: 1,
+  state: 'connecting' as const,
+  direction: 'inbound' as const,
+  testMode: false,
+  failureReason: null,
+  createdAt: new Date(),
+})).onCreate(async (call) => {
+  const [row] = await getTestDb().insert(calls).values({
+    externalCallId: call.externalCallId,
+    companyId: call.companyId,
+    fromPhoneNumberId: call.fromPhoneNumberId,
+    toPhoneNumberId: call.toPhoneNumberId,
+    state: call.state,
+    direction: call.direction,
+    testMode: call.testMode,
+  }).returning();
+  return row;
+});
+
+export const callTranscriptFactory = Factory.define<CallTranscriptRow>(({ sequence }) => ({
+  id: sequence,
+  callId: 1,
+  transcript: `Transcript ${sequence}`,
+  createdAt: new Date(),
+})).onCreate(async (t) => {
+  const [row] = await getTestDb().insert(callTranscripts).values({
+    callId: t.callId,
+    transcript: t.transcript,
   }).returning();
   return row;
 });

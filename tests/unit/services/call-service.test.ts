@@ -6,6 +6,7 @@ describe('CallService', () => {
   let db: any;
   let callRepo: any;
   let participantRepo: any;
+  let transcriptRepo: any;
   let userRepo: any;
   let phoneNumberRepo: any;
   let botRepo: any;
@@ -15,8 +16,9 @@ describe('CallService', () => {
 
   beforeEach(() => {
     db = { transaction: vi.fn().mockImplementation(async (cb: any) => cb({})) };
-    callRepo = { create: vi.fn(), findByExternalCallId: vi.fn(), updateState: vi.fn().mockResolvedValue(undefined) };
+    callRepo = { create: vi.fn(), findByExternalCallId: vi.fn(), updateState: vi.fn().mockResolvedValue(undefined), findAllByCompanyId: vi.fn() };
     participantRepo = { create: vi.fn(), updateState: vi.fn().mockResolvedValue(undefined), findByCallIdAndType: vi.fn(), findAllByCallId: vi.fn() };
+    transcriptRepo = { findByCallIds: vi.fn() };
     userRepo = { findById: vi.fn(), findByCompanyId: vi.fn(), findByPhoneNumberId: vi.fn() };
     phoneNumberRepo = { findById: vi.fn(), findByE164: vi.fn(), create: vi.fn() };
     botRepo = { findByUserId: vi.fn() };
@@ -27,7 +29,7 @@ describe('CallService', () => {
       deleteRoom: vi.fn().mockResolvedValue(undefined),
     };
     endUserRepo = { findByPhoneNumberId: vi.fn(), create: vi.fn() };
-    service = new CallService(db, callRepo, participantRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo);
+    service = new CallService(db, callRepo, participantRepo, transcriptRepo, userRepo, phoneNumberRepo, botRepo, livekitService, endUserRepo);
   });
 
   describe('createCall', () => {
@@ -269,6 +271,75 @@ describe('CallService', () => {
       expect(participantRepo.findByCallIdAndType).toHaveBeenCalledWith(99, 'agent');
       expect(callRepo.updateState).toHaveBeenCalledWith(99, 'connected', expect.anything());
       expect(participantRepo.updateState).toHaveBeenCalledWith(20, 'connected', expect.anything());
+    });
+  });
+
+  describe('listCalls', () => {
+    it('throws BadRequestError when user has no company', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: null });
+      await expect(service.listCalls(1)).rejects.toThrow(BadRequestError);
+    });
+
+    it('returns calls with page_token', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      const callRows = [
+        { id: 3, externalCallId: 'ext-3', companyId: 5, state: 'finished', direction: 'inbound', testMode: false, failureReason: null, createdAt: new Date() },
+        { id: 1, externalCallId: 'ext-1', companyId: 5, state: 'connected', direction: 'outbound', testMode: true, failureReason: null, createdAt: new Date() },
+      ];
+      callRepo.findAllByCompanyId.mockResolvedValue(callRows);
+
+      const result = await service.listCalls(1);
+
+      expect(result.calls).toHaveLength(2);
+      expect(result.page_token).toBe(1);
+      expect(result.calls[0].id).toBe(3);
+    });
+
+    it('returns empty array when no calls exist', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([]);
+
+      const result = await service.listCalls(1);
+
+      expect(result.calls).toHaveLength(0);
+      expect(result.page_token).toBeNull();
+    });
+
+    it('passes pagination and sort options to repository', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([]);
+
+      await service.listCalls(1, { pageToken: 10, limit: 5, sort: 'asc' });
+
+      expect(callRepo.findAllByCompanyId).toHaveBeenCalledWith(5, { pageToken: 10, limit: 5, sort: 'asc' });
+    });
+
+    it('includes transcripts when expand includes transcripts', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      const callRows = [
+        { id: 1, externalCallId: 'ext-1', companyId: 5, state: 'finished', direction: 'inbound', testMode: false, failureReason: null, createdAt: new Date() },
+      ];
+      callRepo.findAllByCompanyId.mockResolvedValue(callRows);
+      transcriptRepo.findByCallIds.mockResolvedValue([
+        { id: 10, callId: 1, transcript: 'Hello world', createdAt: new Date() },
+      ]);
+
+      const result = await service.listCalls(1, { expand: ['transcripts'] });
+
+      expect(result.calls[0].transcripts).toHaveLength(1);
+      expect(result.calls[0].transcripts[0].transcript).toBe('Hello world');
+    });
+
+    it('does not include transcripts when expand is omitted', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      callRepo.findAllByCompanyId.mockResolvedValue([
+        { id: 1, externalCallId: 'ext-1', companyId: 5, state: 'finished', direction: 'inbound', testMode: false, failureReason: null, createdAt: new Date() },
+      ]);
+
+      const result = await service.listCalls(1);
+
+      expect(result.calls[0].transcripts).toBeUndefined();
+      expect(transcriptRepo.findByCallIds).not.toHaveBeenCalled();
     });
   });
 });

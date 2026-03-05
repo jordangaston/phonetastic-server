@@ -9,6 +9,7 @@ export * from './bot-skills';
 export * from './calendars';
 export * from './calls';
 export * from './call-participants';
+export * from './call-transcripts';
 export * from './call-settings';
 export * from './end-users';
 export * from './voices';

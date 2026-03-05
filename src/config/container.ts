@@ -14,6 +14,7 @@ import { VoiceRepository } from '../repositories/voice-repository.js';
 import { CompanyRepository } from '../repositories/company-repository.js';
 import { SkillRepository } from '../repositories/skill-repository.js';
 import { CallRepository } from '../repositories/call-repository.js';
+import { CallTranscriptRepository } from '../repositories/call-transcript-repository.js';
 import { CalendarRepository } from '../repositories/calendar-repository.js';
 import { CallParticipantRepository } from '../repositories/call-participant-repository.js';
 import { FaqRepository } from '../repositories/faq-repository.js';
@@ -97,6 +98,7 @@ export function setupContainer(overrides?: {
   container.register('CompanyRepository', { useClass: CompanyRepository });
   container.register('SkillRepository', { useClass: SkillRepository });
   container.register('CallRepository', { useClass: CallRepository });
+  container.register('CallTranscriptRepository', { useClass: CallTranscriptRepository });
   container.register('CalendarRepository', { useClass: CalendarRepository });
   container.register('CallParticipantRepository', { useClass: CallParticipantRepository });
   container.register('FaqRepository', { useClass: FaqRepository });

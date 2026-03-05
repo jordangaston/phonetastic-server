@@ -1,8 +1,10 @@
 import { injectable, inject } from 'tsyringe';
-import { eq } from 'drizzle-orm';
+import { and, eq, gt, lt, asc, desc } from 'drizzle-orm';
 import { calls } from '../db/schema/calls.js';
 import type { CallState } from '../db/schema/enums.js';
 import type { Database, Transaction } from '../db/index.js';
+
+const DEFAULT_PAGE_SIZE = 20;
 
 /**
  * Data access layer for calls.
@@ -64,5 +66,39 @@ export class CallRepository {
    */
   async updateState(id: number, state: CallState, tx?: Transaction, failureReason?: string): Promise<void> {
     await (tx ?? this.db).update(calls).set({ state, failureReason }).where(eq(calls.id, id));
+  }
+
+  /**
+   * Returns a page of calls for a company using cursor-based pagination.
+   *
+   * @param companyId - The company id to filter by.
+   * @param opts - Pagination and sorting options.
+   * @param opts.pageToken - Call id to start after (exclusive). Omit for the first page.
+   * @param opts.limit - Maximum number of rows to return. Defaults to 20.
+   * @param opts.sort - Sort direction by id. Defaults to 'desc'.
+   * @param tx - Optional transaction to run within.
+   * @returns Array of call rows ordered by id in the specified direction.
+   */
+  async findAllByCompanyId(
+    companyId: number,
+    opts?: { pageToken?: number; limit?: number; sort?: 'asc' | 'desc' },
+    tx?: Transaction,
+  ) {
+    const limit = opts?.limit ?? DEFAULT_PAGE_SIZE;
+    const sortDir = opts?.sort ?? 'desc';
+    const orderFn = sortDir === 'asc' ? asc : desc;
+    const cursorFn = sortDir === 'asc' ? gt : lt;
+
+    const conditions = [eq(calls.companyId, companyId)];
+    if (opts?.pageToken) {
+      conditions.push(cursorFn(calls.id, opts.pageToken));
+    }
+
+    return (tx ?? this.db)
+      .select()
+      .from(calls)
+      .where(and(...conditions))
+      .orderBy(orderFn(calls.id))
+      .limit(limit);
   }
 }

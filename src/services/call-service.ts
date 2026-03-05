@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { injectable, inject } from 'tsyringe';
 import { CallRepository } from '../repositories/call-repository.js';
 import { CallParticipantRepository } from '../repositories/call-participant-repository.js';
+import { CallTranscriptRepository } from '../repositories/call-transcript-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
 import { PhoneNumberRepository } from '../repositories/phone-number-repository.js';
 import { BotRepository } from '../repositories/bot-repository.js';
@@ -11,7 +12,7 @@ import type { LiveKitService } from './livekit-service.js';
 import { BadRequestError } from '../lib/errors.js';
 
 /**
- * Orchestrates call creation.
+ * Orchestrates call creation and retrieval.
  */
 @injectable()
 export class CallService {
@@ -19,6 +20,7 @@ export class CallService {
     @inject('Database') private db: Database,
     @inject('CallRepository') private callRepo: CallRepository,
     @inject('CallParticipantRepository') private participantRepo: CallParticipantRepository,
+    @inject('CallTranscriptRepository') private transcriptRepo: CallTranscriptRepository,
     @inject('UserRepository') private userRepo: UserRepository,
     @inject('PhoneNumberRepository') private phoneNumberRepo: PhoneNumberRepository,
     @inject('BotRepository') private botRepo: BotRepository,
@@ -194,6 +196,81 @@ export class CallService {
         await this.callRepo.updateState(call.id, state, tx, failureReason);
       }
     });
+  }
+
+  /**
+   * Returns a paginated list of calls for the authenticated user's company.
+   *
+   * @precondition The user must belong to a company.
+   * @postcondition Returns calls with optional transcript expansion.
+   * @param userId - The authenticated user's id.
+   * @param opts - Pagination, sorting, and expansion options.
+   * @param opts.pageToken - Call id to start after (exclusive). Omit for the first page.
+   * @param opts.limit - Maximum number of rows to return.
+   * @param opts.sort - Sort direction by id ('asc' or 'desc').
+   * @param opts.expand - Relations to expand (e.g. ['transcripts']).
+   * @returns An object containing the calls array and the next page_token.
+   * @throws {BadRequestError} If the user has no company.
+   */
+  async listCalls(userId: number, opts?: {
+    pageToken?: number;
+    limit?: number;
+    sort?: 'asc' | 'desc';
+    expand?: string[];
+  }) {
+    const user = await this.userRepo.findById(userId);
+    if (!user?.companyId) throw new BadRequestError('User has no company');
+
+    const rows = await this.callRepo.findAllByCompanyId(
+      user.companyId,
+      { pageToken: opts?.pageToken, limit: opts?.limit, sort: opts?.sort },
+    );
+
+    const transcripts = await this.loadTranscripts(rows, opts?.expand);
+    return this.buildListResponse(rows, transcripts);
+  }
+
+  private async loadTranscripts(
+    rows: { id: number }[],
+    expand?: string[],
+  ) {
+    if (!expand?.includes('transcripts') || rows.length === 0) return new Map();
+    const all = await this.transcriptRepo.findByCallIds(rows.map(r => r.id));
+    const map = new Map<number, typeof all>();
+    for (const t of all) {
+      const list = map.get(t.callId) ?? [];
+      list.push(t);
+      map.set(t.callId, list);
+    }
+    return map;
+  }
+
+  private buildListResponse(
+    rows: any[],
+    transcripts: Map<number, any[]>,
+  ) {
+    const nextPageToken = rows.length > 0 ? rows[rows.length - 1].id : null;
+    const calls = rows.map(row => {
+      const call: any = {
+        id: row.id,
+        external_call_id: row.externalCallId,
+        company_id: row.companyId,
+        state: row.state,
+        direction: row.direction,
+        test_mode: row.testMode,
+        failure_reason: row.failureReason,
+        created_at: row.createdAt,
+      };
+      if (transcripts.size > 0) {
+        call.transcripts = (transcripts.get(row.id) ?? []).map(t => ({
+          id: t.id,
+          transcript: t.transcript,
+          created_at: t.createdAt,
+        }));
+      }
+      return call;
+    });
+    return { calls, page_token: nextPageToken };
   }
 
   private allTerminalExcept(participants: { id: number; state: string }[], excludeId: number): boolean {
