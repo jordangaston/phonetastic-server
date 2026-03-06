@@ -16,22 +16,22 @@ export function createCheckAvailabilityTool(userId: number) {
     parameters: {
       type: 'object',
       properties: {
-        timeMin: {
+        startDateTime: {
           type: 'string',
           description: 'Start of the range in ISO 8601 format (e.g. "2026-03-15T09:00:00").',
         },
-        timeMax: {
+        endDateTime: {
           type: 'string',
           description: 'End of the range in ISO 8601 format (e.g. "2026-03-15T17:00:00").',
         },
       },
-      required: ['timeMin', 'timeMax'],
+      required: ['startDateTime', 'endDateTime'],
     },
-    execute: async ({ timeMin, timeMax }: { timeMin: string; timeMax: string }) => {
+    execute: async ({ startDateTime, endDateTime }: { startDateTime: string; endDateTime: string }) => {
       try {
         const calendarService = container.resolve<CalendarService>('CalendarService');
-        const result = await calendarService.checkAvailability(userId, timeMin, timeMax);
-        return formatAvailability(timeMin, timeMax, result.timezone, result.busySlots);
+        const result = await calendarService.checkAvailability(userId, startDateTime, endDateTime);
+        return formatAvailability(startDateTime, endDateTime, result.timezone, result.busySlots);
       } catch (err: any) {
         return { error: err.message };
       }
@@ -110,18 +110,18 @@ export function createBookAppointmentTool(userId: number) {
 }
 
 function formatAvailability(
-  timeMin: string,
-  timeMax: string,
+  startDateTime: string,
+  endDateTime: string,
   timezone: string,
   busySlots: Array<{ start: string; end: string }>,
-): { timeMin: string; timeMax: string; timezone: string; busySlots: Array<{ start: string; end: string }>; summary: string } {
+): { startDateTime: string; endDateTime: string; timezone: string; busySlots: Array<{ start: string; end: string }>; summary: string } {
   if (busySlots.length === 0) {
-    return { timeMin, timeMax, timezone, busySlots, summary: `The range ${timeMin} to ${timeMax} is completely open.` };
+    return { startDateTime, endDateTime, timezone, busySlots, summary: `The range ${startDateTime} to ${endDateTime} is completely open.` };
   }
   const slotDescriptions = busySlots.map(s => `${s.start} to ${s.end}`).join(', ');
   return {
-    timeMin,
-    timeMax,
+    startDateTime,
+    endDateTime,
     timezone,
     busySlots,
     summary: `Busy times: ${slotDescriptions}. All other times in the range are available.`,

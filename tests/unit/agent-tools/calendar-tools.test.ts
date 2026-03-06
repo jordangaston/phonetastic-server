@@ -36,11 +36,11 @@ describe('createCheckAvailabilityTool', () => {
     });
 
     const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ timeMin: '2026-03-15T09:00:00', timeMax: '2026-03-15T17:00:00' });
+    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00' });
 
     expect(result).toEqual(expect.objectContaining({
-      timeMin: '2026-03-15T09:00:00',
-      timeMax: '2026-03-15T17:00:00',
+      startDateTime: '2026-03-15T09:00:00',
+      endDateTime: '2026-03-15T17:00:00',
       timezone: 'America/New_York',
       busySlots: [{ start: '2026-03-15T09:00:00', end: '2026-03-15T10:00:00' }],
     }));
@@ -55,7 +55,7 @@ describe('createCheckAvailabilityTool', () => {
     });
 
     const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ timeMin: '2026-03-15T09:00:00', timeMax: '2026-03-15T17:00:00' });
+    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00' });
 
     expect(result.summary).toContain('completely open');
   });
@@ -64,7 +64,7 @@ describe('createCheckAvailabilityTool', () => {
     mockCalendarService.checkAvailability.mockRejectedValue(new Error('No calendar found for user'));
 
     const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ timeMin: '2026-03-15T09:00:00', timeMax: '2026-03-15T17:00:00' });
+    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00' });
 
     expect(result).toEqual({ error: 'No calendar found for user' });
   });
