@@ -6,7 +6,6 @@ import { userController } from './controllers/user-controller.js';
 import { voiceController } from './controllers/voice-controller.js';
 import { botSettingsController } from './controllers/bot-settings-controller.js';
 import { companyController } from './controllers/company-controller.js';
-import { skillController } from './controllers/skill-controller.js';
 import { callController } from './controllers/call-controller.js';
 import { phoneNumberController } from './controllers/phone-number-controller.js';
 import { callSettingsController } from './controllers/call-settings-controller.js';
@@ -36,7 +35,6 @@ export async function buildApp(options?: { logger?: boolean; dbos?: boolean }): 
   await app.register(voiceController);
   await app.register(botSettingsController);
   await app.register(companyController);
-  await app.register(skillController);
   await app.register(callController);
   await app.register(phoneNumberController);
   await app.register(callSettingsController);

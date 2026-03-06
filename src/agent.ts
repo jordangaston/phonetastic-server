@@ -11,25 +11,11 @@ import 'dotenv/config';
 import { setupContainer, container } from './config/container.js';
 import type { CallService } from './services/call-service.js';
 import type { LiveKitService } from './services/livekit-service.js';
-import type { CompanyRepository } from './repositories/company-repository.js';
-import type { BotSkillRepository } from './repositories/bot-skill-repository.js';
-import type { BotSettingsRepository } from './repositories/bot-settings-repository.js';
-import type { CalendarRepository } from './repositories/calendar-repository.js';
-import type { CalendarService } from './services/calendar-service.js';
 import { RoomEvent, DisconnectReason } from '@livekit/rtc-node';
 import { createEndCallTool } from './agent-tools/end-call-tool.js';
 import { createCheckAvailabilityTool, createBookAppointmentTool } from './agent-tools/calendar-tools.js';
-import { formatOfferingsText, formatOperationHoursText } from './lib/format-company-text.js';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
-const CALENDAR_SKILL_NAME = 'calendar_booking';
-
-/** Agent configuration produced by {@link buildAgentConfig}. */
-export interface AgentConfig {
-  instructions: string;
-  tools: Record<string, any>;
-  greetingMessage: string;
-}
 
 function isTestCall(roomName: string): boolean {
   return roomName.startsWith('test-');
@@ -58,101 +44,6 @@ function closeReasonToState(ev: voice.CloseEvent): { state: 'finished' | 'failed
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Builds agent configuration from resolved call context.
- *
- * Loads the company profile, checks whether the calendar booking skill is
- * enabled, and assembles dynamic instructions and tools.
- *
- * @precondition The DI container must be initialized.
- * @param context - The user, company, and bot ids from {@link CallService.initializeInboundCall}.
- * @returns Instructions, tools, and greeting message for the voice agent.
- */
-export async function buildAgentConfig(context: {
-  userId: number;
-  companyId: number;
-  botId: number;
-}): Promise<AgentConfig> {
-  const companyRepo = container.resolve<CompanyRepository>('CompanyRepository');
-  const botSkillRepo = container.resolve<BotSkillRepository>('BotSkillRepository');
-  const botSettingsRepo = container.resolve<BotSettingsRepository>('BotSettingsRepository');
-  const calendarRepo = container.resolve<CalendarRepository>('CalendarRepository');
-
-  const company = await companyRepo.findWithRelations(context.companyId);
-  const settings = await botSettingsRepo.findByUserId(context.userId);
-  const calendarSkill = await botSkillRepo.findEnabledByBotIdAndSkillName(context.botId, CALENDAR_SKILL_NAME);
-
-  const tools: Record<string, any> = { endCall: createEndCallTool() };
-  const instructionParts = buildBaseInstructions(company);
-
-  if (calendarSkill) {
-    const calendar = await calendarRepo.findByUserId(context.userId);
-    if (calendar) {
-      tools.checkAvailability = createCheckAvailabilityTool(context.userId);
-      tools.bookAppointment = createBookAppointmentTool(context.userId);
-      const timezone = await resolveCalendarTimezone(context.userId);
-      instructionParts.push(buildCalendarInstructions(timezone));
-    }
-  }
-
-  const greetingMessage = settings?.callGreetingMessage
-    ?? 'Hi, I\'m your virtual assistant. How can I help you today?';
-
-  return {
-    instructions: instructionParts.join('\n\n'),
-    tools,
-    greetingMessage,
-  };
-}
-
-function buildBaseInstructions(company: any): string[] {
-  const parts: string[] = [];
-  const name = company?.name ?? 'our business';
-  const type = company?.businessType ?? '';
-
-  parts.push(`You are a virtual phone assistant for ${name}${type ? `, a ${type}` : ''}.`);
-  parts.push('Answer questions clearly and concisely.');
-
-  if (company?.offerings?.length) {
-    parts.push(`Services offered:\n${formatOfferingsText(company.offerings)}`);
-  }
-  if (company?.operationHours?.length) {
-    parts.push(`Business hours:\n${formatOperationHoursText(company.operationHours)}`);
-  }
-  if (company?.faqs?.length) {
-    const faqText = company.faqs
-      .map((f: any) => `Q: ${f.question}\nA: ${f.answer}`)
-      .join('\n\n');
-    parts.push(`Frequently asked questions:\n${faqText}`);
-  }
-
-  return parts;
-}
-
-function buildCalendarInstructions(timezone: string | null): string {
-  const tzNote = timezone
-    ? ` The calendar timezone is ${timezone}. Present all times in this timezone.`
-    : '';
-  return (
-    'You can check calendar availability and book appointments. ' +
-    'When a caller wants to book, first check availability for their desired date, ' +
-    'then confirm the time slot with the caller before booking. ' +
-    'Always confirm all details before creating the appointment.' +
-    tzNote
-  );
-}
-
-async function resolveCalendarTimezone(userId: number): Promise<string | null> {
-  try {
-    const calendarService = container.resolve<CalendarService>('CalendarService');
-    const today = new Date().toISOString().slice(0, 10);
-    const result = await calendarService.checkAvailability(userId, today);
-    return result.timezone;
-  } catch {
-    return null;
-  }
 }
 
 export default defineAgent({
@@ -217,7 +108,7 @@ export default defineAgent({
     log().info({ roomName }, 'Call connected');
 
     const caller = await ctx.waitForParticipant();
-    let agentConfig: AgentConfig | undefined;
+    let callContext: { userId: number; companyId: number; botId: number } | undefined;
     try {
       if (isTestCall(roomName)) {
         log().info({ caller }, 'Caller found');
@@ -227,10 +118,8 @@ export default defineAgent({
         const from = caller.attributes['sip.phoneNumber'];
         const to = caller.attributes['sip.trunkPhoneNumber'];
         log().info({ from, to }, 'Initializing inbound call');
-        const callContext = await callService.initializeInboundCall(roomName, from, to);
+        callContext = await callService.initializeInboundCall(roomName, from, to);
         log().info('Inbound call initialized');
-        agentConfig = await buildAgentConfig(callContext);
-        log().info({ hasCalendarTools: 'bookAppointment' in agentConfig.tools }, 'Agent config built');
       }
     } catch (err: any) {
       log().error({ err }, 'Failed to initialize inbound call');
@@ -245,10 +134,8 @@ export default defineAgent({
     }
 
     log().info('Generating initial reply');
-    const greeting = agentConfig?.greetingMessage
-      ?? 'Hi, I\'m Kate, your virtual assistant. How can I help you today?';
     session.generateReply({
-      instructions: `Say "${greeting}"`,
+      instructions: 'Say "Hi, I\'m Kate, your virtual assistant. How can I help you today?"',
     });
   }
 });

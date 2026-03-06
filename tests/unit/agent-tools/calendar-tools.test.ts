@@ -36,14 +36,16 @@ describe('createCheckAvailabilityTool', () => {
     });
 
     const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ date: '2026-03-15' });
+    const result = await tool.execute({ timeMin: '2026-03-15T09:00:00', timeMax: '2026-03-15T17:00:00' });
 
     expect(result).toEqual(expect.objectContaining({
-      date: '2026-03-15',
+      timeMin: '2026-03-15T09:00:00',
+      timeMax: '2026-03-15T17:00:00',
       timezone: 'America/New_York',
       busySlots: [{ start: '2026-03-15T09:00:00', end: '2026-03-15T10:00:00' }],
     }));
-    expect(result.summary).toContain('Busy times on 2026-03-15');
+    expect(result.summary).toContain('Busy times');
+    expect(mockCalendarService.checkAvailability).toHaveBeenCalledWith(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
   });
 
   it('returns open summary when no busy slots', async () => {
@@ -53,16 +55,16 @@ describe('createCheckAvailabilityTool', () => {
     });
 
     const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ date: '2026-03-15' });
+    const result = await tool.execute({ timeMin: '2026-03-15T09:00:00', timeMax: '2026-03-15T17:00:00' });
 
-    expect(result.summary).toBe('2026-03-15 is completely open.');
+    expect(result.summary).toContain('completely open');
   });
 
   it('returns error message on service failure', async () => {
     mockCalendarService.checkAvailability.mockRejectedValue(new Error('No calendar found for user'));
 
     const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ date: '2026-03-15' });
+    const result = await tool.execute({ timeMin: '2026-03-15T09:00:00', timeMax: '2026-03-15T17:00:00' });
 
     expect(result).toEqual({ error: 'No calendar found for user' });
   });
@@ -85,6 +87,7 @@ describe('createBookAppointmentTool', () => {
       summary: 'Haircut - John',
       startDateTime: '2026-03-15T14:00:00',
       endDateTime: '2026-03-15T15:00:00',
+      endUserId: 42,
       callerName: 'John',
       callerPhone: '+1234567890',
     });
@@ -108,6 +111,7 @@ describe('createBookAppointmentTool', () => {
       summary: 'Haircut',
       startDateTime: '2026-03-15T14:00:00',
       endDateTime: '2026-03-15T15:00:00',
+      endUserId: 42,
     });
 
     expect(result).toEqual({ error: 'Token refresh failed' });

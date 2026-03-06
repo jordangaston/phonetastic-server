@@ -44,18 +44,17 @@ export class CalendarService {
   ) {}
 
   /**
-   * Checks availability for a user's calendar on a given date.
+   * Checks availability for a user's calendar within a time range.
    *
    * @param userId - The user whose calendar to query.
-   * @param date - ISO date string (e.g. "2026-03-15").
-   * @returns The calendar timezone and busy slots for the date.
+   * @param timeMin - Start of the range in ISO 8601 format (e.g. "2026-03-15T09:00:00").
+   * @param timeMax - End of the range in ISO 8601 format (e.g. "2026-03-15T17:00:00").
+   * @returns The calendar timezone and busy slots within the range.
    * @throws {Error} If no calendar is found for the user.
    */
-  async checkAvailability(userId: number, date: string): Promise<AvailabilityResult> {
+  async checkAvailability(userId: number, timeMin: string, timeMax: string): Promise<AvailabilityResult> {
     const { client, email } = await this.resolveClient(userId);
     const timezone = await client.getCalendarTimezone(email);
-    const timeMin = `${date}T00:00:00`;
-    const timeMax = `${date}T23:59:59`;
     const result = await client.queryFreeBusy(email, timeMin, timeMax);
     return { timezone, busySlots: result.busySlots };
   }

@@ -3,7 +3,7 @@ import { container } from '../config/container.js';
 import type { CalendarService } from '../services/calendar-service.js';
 
 /**
- * Creates a tool that checks calendar availability for a given date.
+ * Creates a tool that checks calendar availability for a date-time range.
  *
  * @param userId - The user whose calendar to query.
  * @returns An LLM tool the agent can invoke to check free/busy times.
@@ -11,23 +11,27 @@ import type { CalendarService } from '../services/calendar-service.js';
 export function createCheckAvailabilityTool(userId: number) {
   return llm.tool({
     description:
-      'Checks calendar availability for a given date. ' +
+      'Checks calendar availability for a date-time range. ' +
       'Returns busy time slots so the agent can suggest open times.',
     parameters: {
       type: 'object',
       properties: {
-        date: {
+        timeMin: {
           type: 'string',
-          description: 'The date to check in ISO format (e.g. "2026-03-15").',
+          description: 'Start of the range in ISO 8601 format (e.g. "2026-03-15T09:00:00").',
+        },
+        timeMax: {
+          type: 'string',
+          description: 'End of the range in ISO 8601 format (e.g. "2026-03-15T17:00:00").',
         },
       },
-      required: ['date'],
+      required: ['timeMin', 'timeMax'],
     },
-    execute: async ({ date }: { date: string }) => {
+    execute: async ({ timeMin, timeMax }: { timeMin: string; timeMax: string }) => {
       try {
         const calendarService = container.resolve<CalendarService>('CalendarService');
-        const result = await calendarService.checkAvailability(userId, date);
-        return formatAvailability(date, result.timezone, result.busySlots);
+        const result = await calendarService.checkAvailability(userId, timeMin, timeMax);
+        return formatAvailability(timeMin, timeMax, result.timezone, result.busySlots);
       } catch (err: any) {
         return { error: err.message };
       }
@@ -61,6 +65,10 @@ export function createBookAppointmentTool(userId: number) {
           type: 'string',
           description: 'End time in ISO 8601 format (e.g. "2026-03-15T15:00:00").',
         },
+        endUserId: {
+          type: 'number',
+          description: 'The end user id of the caller.',
+        },
         callerName: {
           type: 'string',
           description: "The caller's name, if provided.",
@@ -70,12 +78,13 @@ export function createBookAppointmentTool(userId: number) {
           description: "The caller's phone number, if provided.",
         },
       },
-      required: ['summary', 'startDateTime', 'endDateTime'],
+      required: ['summary', 'startDateTime', 'endDateTime', 'endUserId'],
     },
     execute: async (params: {
       summary: string;
       startDateTime: string;
       endDateTime: string;
+      endUserId: number;
       callerName?: string;
       callerPhone?: string;
     }) => {
@@ -101,19 +110,21 @@ export function createBookAppointmentTool(userId: number) {
 }
 
 function formatAvailability(
-  date: string,
+  timeMin: string,
+  timeMax: string,
   timezone: string,
   busySlots: Array<{ start: string; end: string }>,
-): { date: string; timezone: string; busySlots: Array<{ start: string; end: string }>; summary: string } {
+): { timeMin: string; timeMax: string; timezone: string; busySlots: Array<{ start: string; end: string }>; summary: string } {
   if (busySlots.length === 0) {
-    return { date, timezone, busySlots, summary: `${date} is completely open.` };
+    return { timeMin, timeMax, timezone, busySlots, summary: `The range ${timeMin} to ${timeMax} is completely open.` };
   }
   const slotDescriptions = busySlots.map(s => `${s.start} to ${s.end}`).join(', ');
   return {
-    date,
+    timeMin,
+    timeMax,
     timezone,
     busySlots,
-    summary: `Busy times on ${date}: ${slotDescriptions}. All other times are available.`,
+    summary: `Busy times: ${slotDescriptions}. All other times in the range are available.`,
   };
 }
 

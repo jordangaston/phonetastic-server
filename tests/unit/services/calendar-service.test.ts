@@ -57,20 +57,20 @@ describe('CalendarService', () => {
   });
 
   describe('checkAvailability', () => {
-    it('returns busy slots when calendar exists', async () => {
+    it('returns busy slots for the given time range', async () => {
       calendarRepo.findByUserId.mockResolvedValue(validCalendar);
 
-      const result = await service.checkAvailability(10, '2026-03-15');
+      const result = await service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
 
       expect(result.timezone).toBe('America/New_York');
       expect(result.busySlots).toHaveLength(1);
-      expect(mockClient.queryFreeBusy).toHaveBeenCalledWith('user@example.com', '2026-03-15T00:00:00', '2026-03-15T23:59:59');
+      expect(mockClient.queryFreeBusy).toHaveBeenCalledWith('user@example.com', '2026-03-15T09:00:00', '2026-03-15T17:00:00');
     });
 
     it('throws when no calendar is found', async () => {
       calendarRepo.findByUserId.mockResolvedValue(undefined);
 
-      await expect(service.checkAvailability(10, '2026-03-15')).rejects.toThrow('No calendar found for user');
+      await expect(service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00')).rejects.toThrow('No calendar found for user');
     });
   });
 
@@ -111,7 +111,7 @@ describe('CalendarService', () => {
       };
       calendarRepo.findByUserId.mockResolvedValue(expiredCalendar);
 
-      await service.checkAvailability(10, '2026-03-15');
+      await service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
 
       expect(calendarRepo.updateTokens).toHaveBeenCalledWith(1, expect.objectContaining({
         accessToken: 'refreshed-access',
@@ -122,7 +122,7 @@ describe('CalendarService', () => {
     it('does not refresh a valid token', async () => {
       calendarRepo.findByUserId.mockResolvedValue(validCalendar);
 
-      await service.checkAvailability(10, '2026-03-15');
+      await service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
 
       expect(calendarRepo.updateTokens).not.toHaveBeenCalled();
     });
