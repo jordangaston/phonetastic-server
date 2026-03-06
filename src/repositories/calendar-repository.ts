@@ -43,4 +43,35 @@ export class CalendarRepository {
     const [row] = await (tx ?? this.db).select().from(calendars).where(eq(calendars.userId, userId));
     return row;
   }
+
+  /**
+   * Finds a calendar by company id.
+   *
+   * @param companyId - The company id.
+   * @param tx - Optional transaction to run within.
+   * @returns The calendar row, or undefined.
+   */
+  async findByCompanyId(companyId: number, tx?: Transaction) {
+    const [row] = await (tx ?? this.db).select().from(calendars).where(eq(calendars.companyId, companyId));
+    return row;
+  }
+
+  /**
+   * Updates the OAuth tokens for a calendar record.
+   *
+   * @precondition A calendar with the given id must exist.
+   * @postcondition The access token, refresh token, and expiry are updated.
+   * @param id - The calendar row id.
+   * @param data - The new token values.
+   * @param tx - Optional transaction to run within.
+   * @returns The updated calendar row, or undefined.
+   */
+  async updateTokens(id: number, data: {
+    accessToken: string;
+    refreshToken: string;
+    tokenExpiresAt: Date;
+  }, tx?: Transaction) {
+    const [row] = await (tx ?? this.db).update(calendars).set(data).where(eq(calendars.id, id)).returning();
+    return row;
+  }
 }
