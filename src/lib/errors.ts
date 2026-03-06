@@ -60,3 +60,15 @@ export class ForbiddenError extends AppError {
     super(message, 403, code);
   }
 }
+
+/**
+ * Thrown when an upstream service returns a server error (5xx).
+ *
+ * @param message - Human-readable error description.
+ * @param code - Machine-readable error code (default 500).
+ */
+export class ServerError extends AppError {
+  constructor(message: string, code = 500) {
+    super(message, 500, code);
+  }
+}

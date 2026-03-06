@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RealGoogleCalendarClient } from '../../../src/services/google-calendar-client.js';
+import { BadRequestError, ServerError } from '../../../src/lib/errors.js';
 
 describe('RealGoogleCalendarClient', () => {
   let client: RealGoogleCalendarClient;
@@ -30,7 +31,7 @@ describe('RealGoogleCalendarClient', () => {
       );
     });
 
-    it('throws on HTTP error', async () => {
+    it('throws BadRequestError on 4xx', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
@@ -38,7 +39,18 @@ describe('RealGoogleCalendarClient', () => {
       });
 
       await expect(client.getCalendarTimezone('user@example.com'))
-        .rejects.toThrow('Google Calendar API error 401: Unauthorized');
+        .rejects.toThrow(BadRequestError);
+    });
+
+    it('throws ServerError on 5xx', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 502,
+        text: async () => 'Bad Gateway',
+      });
+
+      await expect(client.getCalendarTimezone('user@example.com'))
+        .rejects.toThrow(ServerError);
     });
   });
 
@@ -96,7 +108,7 @@ describe('RealGoogleCalendarClient', () => {
       expect(result.end).toBe('2026-03-06T15:00:00-05:00');
     });
 
-    it('throws on HTTP error', async () => {
+    it('throws BadRequestError on 4xx', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 403,
@@ -108,7 +120,22 @@ describe('RealGoogleCalendarClient', () => {
         startDateTime: '2026-03-06T14:00:00-05:00',
         endDateTime: '2026-03-06T15:00:00-05:00',
         timeZone: 'America/Chicago',
-      })).rejects.toThrow('Google Calendar API error 403: Forbidden');
+      })).rejects.toThrow(BadRequestError);
+    });
+
+    it('throws ServerError on 5xx', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => 'Internal Server Error',
+      });
+
+      await expect(client.createEvent('user@example.com', {
+        summary: 'Haircut',
+        startDateTime: '2026-03-06T14:00:00-05:00',
+        endDateTime: '2026-03-06T15:00:00-05:00',
+        timeZone: 'America/Chicago',
+      })).rejects.toThrow(ServerError);
     });
   });
 });

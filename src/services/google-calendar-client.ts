@@ -6,6 +6,8 @@
  * for refreshing expired tokens before creating an instance.
  */
 
+import { BadRequestError, ServerError } from '../lib/errors.js';
+
 const BASE_URL = 'https://www.googleapis.com/calendar/v3';
 
 /** A busy time interval returned by the FreeBusy API. */
@@ -132,10 +134,11 @@ export class RealGoogleCalendarClient implements GoogleCalendarClient {
   }
 
   private async assertOk(res: Response): Promise<void> {
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Google Calendar API error ${res.status}: ${text}`);
-    }
+    if (res.ok) return;
+    const text = await res.text();
+    const message = `Google Calendar API error ${res.status}: ${text}`;
+    if (res.status >= 500) throw new ServerError(message);
+    throw new BadRequestError(message);
   }
 }
 
