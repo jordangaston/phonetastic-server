@@ -25,6 +25,17 @@ export class OperationHourRepository {
   }
 
   /**
+   * Finds all operation hours for a company.
+   *
+   * @param companyId - The company whose hours to find.
+   * @param tx - Optional transaction to run within.
+   * @returns The operation hour rows.
+   */
+  async findByCompanyId(companyId: number, tx?: Transaction) {
+    return (tx ?? this.db).select().from(operationHours).where(eq(operationHours.companyId, companyId));
+  }
+
+  /**
    * Deletes all operation hours for a company.
    *
    * @param companyId - The company whose hours to delete.

@@ -1,18 +1,19 @@
 import { llm } from '@livekit/agents';
 import { container } from '../config/container.js';
-import type { CalendarService } from '../services/calendar-service.js';
+import type { CalendarService, TimeSlot } from '../services/calendar-service.js';
 
 /**
- * Creates a tool that checks calendar availability for a date-time range.
+ * Creates a tool that gets available appointment slots for a date-time range.
  *
  * @param userId - The user whose calendar to query.
- * @returns An LLM tool the agent can invoke to check free/busy times.
+ * @returns An LLM tool the agent can invoke to get available time slots.
  */
-export function createCheckAvailabilityTool(userId: number) {
+export function createGetAvailabilityTool(userId: number) {
   return llm.tool({
     description:
-      'Checks calendar availability for a date-time range. ' +
-      'Returns busy time slots so the agent can suggest open times.',
+      'Gets available appointment slots for a date-time range. ' +
+      'Returns open time slots that fit the requested duration, ' +
+      'accounting for existing calendar events and business hours.',
     parameters: {
       type: 'object',
       properties: {
@@ -24,14 +25,18 @@ export function createCheckAvailabilityTool(userId: number) {
           type: 'string',
           description: 'End of the range in ISO 8601 format (e.g. "2026-03-15T17:00:00").',
         },
+        duration: {
+          type: 'string',
+          description: 'Desired appointment duration (e.g. "30m", "1h", "1h30m").',
+        },
       },
-      required: ['startDateTime', 'endDateTime'],
+      required: ['startDateTime', 'endDateTime', 'duration'],
     },
-    execute: async ({ startDateTime, endDateTime }: { startDateTime: string; endDateTime: string }) => {
+    execute: async (params: { startDateTime: string; endDateTime: string; duration: string }) => {
       try {
         const calendarService = container.resolve<CalendarService>('CalendarService');
-        const result = await calendarService.checkAvailability(userId, startDateTime, endDateTime);
-        return formatAvailability(startDateTime, endDateTime, result.timezone, result.busySlots);
+        const result = await calendarService.getAvailability(userId, params.startDateTime, params.endDateTime, params.duration);
+        return formatAvailability(params, result.timezone, result.availableSlots);
       } catch (err: any) {
         return { error: err.message };
       }
@@ -110,21 +115,19 @@ export function createBookAppointmentTool(userId: number) {
 }
 
 function formatAvailability(
-  startDateTime: string,
-  endDateTime: string,
+  params: { startDateTime: string; endDateTime: string; duration: string },
   timezone: string,
-  busySlots: Array<{ start: string; end: string }>,
-): { startDateTime: string; endDateTime: string; timezone: string; busySlots: Array<{ start: string; end: string }>; summary: string } {
-  if (busySlots.length === 0) {
-    return { startDateTime, endDateTime, timezone, busySlots, summary: `The range ${startDateTime} to ${endDateTime} is completely open.` };
+  availableSlots: TimeSlot[],
+) {
+  if (availableSlots.length === 0) {
+    return { ...params, timezone, availableSlots, summary: 'No available slots in the requested range.' };
   }
-  const slotDescriptions = busySlots.map(s => `${s.start} to ${s.end}`).join(', ');
+  const count = availableSlots.length;
   return {
-    startDateTime,
-    endDateTime,
+    ...params,
     timezone,
-    busySlots,
-    summary: `Busy times: ${slotDescriptions}. All other times in the range are available.`,
+    availableSlots,
+    summary: `${count} available ${params.duration} slot${count === 1 ? '' : 's'} found.`,
   };
 }
 

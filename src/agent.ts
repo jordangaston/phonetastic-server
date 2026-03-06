@@ -13,7 +13,7 @@ import type { CallService } from './services/call-service.js';
 import type { LiveKitService } from './services/livekit-service.js';
 import { RoomEvent, DisconnectReason } from '@livekit/rtc-node';
 import { createEndCallTool } from './agent-tools/end-call-tool.js';
-import { createCheckAvailabilityTool, createBookAppointmentTool } from './agent-tools/calendar-tools.js';
+import { createGetAvailabilityTool, createBookAppointmentTool } from './agent-tools/calendar-tools.js';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
 

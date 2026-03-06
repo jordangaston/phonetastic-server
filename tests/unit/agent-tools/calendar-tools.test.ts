@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { mockCalendarService, mockContainer } = vi.hoisted(() => {
   const mockCalendarService = {
-    checkAvailability: vi.fn(),
+    getAvailability: vi.fn(),
     bookAppointment: vi.fn(),
   };
   const mockContainer = {
@@ -21,50 +21,54 @@ vi.mock('@livekit/agents', () => ({
   },
 }));
 
-import { createCheckAvailabilityTool, createBookAppointmentTool } from '../../../src/agent-tools/calendar-tools.js';
+import { createGetAvailabilityTool, createBookAppointmentTool } from '../../../src/agent-tools/calendar-tools.js';
 
-describe('createCheckAvailabilityTool', () => {
+describe('createGetAvailabilityTool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockContainer.resolve.mockReturnValue(mockCalendarService);
   });
 
-  it('returns formatted availability with busy slots', async () => {
-    mockCalendarService.checkAvailability.mockResolvedValue({
+  it('returns available slots with summary', async () => {
+    mockCalendarService.getAvailability.mockResolvedValue({
       timezone: 'America/New_York',
-      busySlots: [{ start: '2026-03-15T09:00:00', end: '2026-03-15T10:00:00' }],
+      availableSlots: [
+        { start: '2026-03-15T10:00:00.000Z', end: '2026-03-15T10:30:00.000Z' },
+        { start: '2026-03-15T11:00:00.000Z', end: '2026-03-15T11:30:00.000Z' },
+      ],
     });
 
-    const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00' });
+    const tool = createGetAvailabilityTool(10);
+    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00', duration: '30m' });
 
     expect(result).toEqual(expect.objectContaining({
       startDateTime: '2026-03-15T09:00:00',
       endDateTime: '2026-03-15T17:00:00',
+      duration: '30m',
       timezone: 'America/New_York',
-      busySlots: [{ start: '2026-03-15T09:00:00', end: '2026-03-15T10:00:00' }],
+      availableSlots: expect.arrayContaining([expect.objectContaining({ start: expect.any(String) })]),
     }));
-    expect(result.summary).toContain('Busy times');
-    expect(mockCalendarService.checkAvailability).toHaveBeenCalledWith(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
+    expect(result.summary).toContain('2 available 30m slots found');
+    expect(mockCalendarService.getAvailability).toHaveBeenCalledWith(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00', '30m');
   });
 
-  it('returns open summary when no busy slots', async () => {
-    mockCalendarService.checkAvailability.mockResolvedValue({
+  it('returns no-slots summary when empty', async () => {
+    mockCalendarService.getAvailability.mockResolvedValue({
       timezone: 'America/New_York',
-      busySlots: [],
+      availableSlots: [],
     });
 
-    const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00' });
+    const tool = createGetAvailabilityTool(10);
+    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00', duration: '1h' });
 
-    expect(result.summary).toContain('completely open');
+    expect(result.summary).toBe('No available slots in the requested range.');
   });
 
   it('returns error message on service failure', async () => {
-    mockCalendarService.checkAvailability.mockRejectedValue(new Error('No calendar found for user'));
+    mockCalendarService.getAvailability.mockRejectedValue(new Error('No calendar found for user'));
 
-    const tool = createCheckAvailabilityTool(10);
-    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00' });
+    const tool = createGetAvailabilityTool(10);
+    const result = await tool.execute({ startDateTime: '2026-03-15T09:00:00', endDateTime: '2026-03-15T17:00:00', duration: '30m' });
 
     expect(result).toEqual({ error: 'No calendar found for user' });
   });

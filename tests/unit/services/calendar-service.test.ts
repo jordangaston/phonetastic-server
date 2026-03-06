@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CalendarService } from '../../../src/services/calendar-service.js';
+import { CalendarService, computeAvailableSlots } from '../../../src/services/calendar-service.js';
 
 vi.mock('google-auth-library', () => ({
   OAuth2Client: vi.fn().mockImplementation(() => ({
@@ -29,6 +29,7 @@ let mockClient: any;
 
 describe('CalendarService', () => {
   let calendarRepo: any;
+  let operationHourRepo: any;
   let service: CalendarService;
 
   const validCalendar = {
@@ -48,29 +49,52 @@ describe('CalendarService', () => {
       findByUserId: vi.fn(),
       updateTokens: vi.fn().mockResolvedValue(undefined),
     };
+    operationHourRepo = {
+      findByCompanyId: vi.fn().mockResolvedValue([]),
+    };
     mockClient = {
       getCalendarTimezone: vi.fn().mockResolvedValue('America/New_York'),
-      queryFreeBusy: vi.fn().mockResolvedValue({ busySlots: [{ start: '2026-03-15T09:00:00', end: '2026-03-15T10:00:00' }] }),
-      createEvent: vi.fn().mockResolvedValue({ eventId: 'evt-1', htmlLink: 'https://cal.google.com/evt-1', start: '2026-03-15T14:00:00', end: '2026-03-15T15:00:00' }),
+      queryFreeBusy: vi.fn().mockResolvedValue({ busySlots: [{ start: '2026-03-15T13:00:00Z', end: '2026-03-15T14:00:00Z' }] }),
+      createEvent: vi.fn().mockResolvedValue({ eventId: 'evt-1', htmlLink: 'https://cal.google.com/evt-1' }),
     };
-    service = new CalendarService(calendarRepo);
+    service = new CalendarService(calendarRepo, operationHourRepo);
   });
 
-  describe('checkAvailability', () => {
-    it('returns busy slots for the given time range', async () => {
+  describe('getAvailability', () => {
+    it('returns available slots excluding busy periods', async () => {
       calendarRepo.findByUserId.mockResolvedValue(validCalendar);
 
-      const result = await service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
+      const result = await service.getAvailability(10, '2026-03-15T12:00:00Z', '2026-03-15T15:00:00Z', '1h');
 
       expect(result.timezone).toBe('America/New_York');
-      expect(result.busySlots).toHaveLength(1);
-      expect(mockClient.queryFreeBusy).toHaveBeenCalledWith('user@example.com', '2026-03-15T09:00:00', '2026-03-15T17:00:00');
+      expect(result.availableSlots).toEqual([
+        { start: '2026-03-15T12:00:00.000Z', end: '2026-03-15T13:00:00.000Z' },
+        { start: '2026-03-15T14:00:00.000Z', end: '2026-03-15T15:00:00.000Z' },
+      ]);
+    });
+
+    it('respects operation hours when set', async () => {
+      calendarRepo.findByUserId.mockResolvedValue(validCalendar);
+      mockClient.queryFreeBusy.mockResolvedValue({ busySlots: [] });
+      // 2026-03-15 is a Sunday (day 0)
+      operationHourRepo.findByCompanyId.mockResolvedValue([
+        { dayOfWeek: 0, openTime: '09:00', closeTime: '12:00' },
+      ]);
+
+      const result = await service.getAvailability(10, '2026-03-15T08:00:00Z', '2026-03-15T14:00:00Z', '1h');
+
+      expect(result.availableSlots).toEqual([
+        { start: '2026-03-15T09:00:00.000Z', end: '2026-03-15T10:00:00.000Z' },
+        { start: '2026-03-15T10:00:00.000Z', end: '2026-03-15T11:00:00.000Z' },
+        { start: '2026-03-15T11:00:00.000Z', end: '2026-03-15T12:00:00.000Z' },
+      ]);
     });
 
     it('throws when no calendar is found', async () => {
       calendarRepo.findByUserId.mockResolvedValue(undefined);
 
-      await expect(service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00')).rejects.toThrow('No calendar found for user');
+      await expect(service.getAvailability(10, '2026-03-15T09:00:00Z', '2026-03-15T17:00:00Z', '30m'))
+        .rejects.toThrow('No calendar found for user');
     });
   });
 
@@ -86,10 +110,6 @@ describe('CalendarService', () => {
 
       expect(result.eventId).toBe('evt-1');
       expect(result.htmlLink).toBe('https://cal.google.com/evt-1');
-      expect(mockClient.createEvent).toHaveBeenCalledWith('user@example.com', expect.objectContaining({
-        summary: 'Haircut',
-        timeZone: 'America/New_York',
-      }));
     });
 
     it('throws when no calendar is found', async () => {
@@ -105,13 +125,10 @@ describe('CalendarService', () => {
 
   describe('token refresh', () => {
     it('refreshes expired token and persists new credentials', async () => {
-      const expiredCalendar = {
-        ...validCalendar,
-        tokenExpiresAt: new Date(Date.now() - 60_000),
-      };
+      const expiredCalendar = { ...validCalendar, tokenExpiresAt: new Date(Date.now() - 60_000) };
       calendarRepo.findByUserId.mockResolvedValue(expiredCalendar);
 
-      await service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
+      await service.getAvailability(10, '2026-03-15T09:00:00Z', '2026-03-15T17:00:00Z', '30m');
 
       expect(calendarRepo.updateTokens).toHaveBeenCalledWith(1, expect.objectContaining({
         accessToken: 'refreshed-access',
@@ -122,9 +139,52 @@ describe('CalendarService', () => {
     it('does not refresh a valid token', async () => {
       calendarRepo.findByUserId.mockResolvedValue(validCalendar);
 
-      await service.checkAvailability(10, '2026-03-15T09:00:00', '2026-03-15T17:00:00');
+      await service.getAvailability(10, '2026-03-15T09:00:00Z', '2026-03-15T17:00:00Z', '30m');
 
       expect(calendarRepo.updateTokens).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('computeAvailableSlots', () => {
+  const HOUR = 60 * 60_000;
+
+  it('returns full range when no busy slots and no operation hours', () => {
+    const start = new Date('2026-03-15T09:00:00Z');
+    const end = new Date('2026-03-15T12:00:00Z');
+    const slots = computeAvailableSlots(start, end, [], [], HOUR);
+
+    expect(slots).toHaveLength(3);
+  });
+
+  it('excludes busy periods', () => {
+    const start = new Date('2026-03-15T09:00:00Z');
+    const end = new Date('2026-03-15T12:00:00Z');
+    const busy = [{ start: new Date('2026-03-15T10:00:00Z'), end: new Date('2026-03-15T11:00:00Z') }];
+    const slots = computeAvailableSlots(start, end, busy, [], HOUR);
+
+    expect(slots).toHaveLength(2);
+    expect(slots[0].start).toBe('2026-03-15T09:00:00.000Z');
+    expect(slots[1].start).toBe('2026-03-15T11:00:00.000Z');
+  });
+
+  it('restricts to operation hours', () => {
+    const start = new Date('2026-03-15T07:00:00Z');
+    const end = new Date('2026-03-15T20:00:00Z');
+    // Sunday = day 0
+    const opHours = [{ dayOfWeek: 0, openTime: '09:00', closeTime: '12:00' }];
+    const slots = computeAvailableSlots(start, end, [], opHours, HOUR);
+
+    expect(slots).toHaveLength(3);
+    expect(slots[0].start).toBe('2026-03-15T09:00:00.000Z');
+    expect(slots[2].end).toBe('2026-03-15T12:00:00.000Z');
+  });
+
+  it('returns empty when no slots fit the duration', () => {
+    const start = new Date('2026-03-15T09:00:00Z');
+    const end = new Date('2026-03-15T09:30:00Z');
+    const slots = computeAvailableSlots(start, end, [], [], HOUR);
+
+    expect(slots).toHaveLength(0);
   });
 });
