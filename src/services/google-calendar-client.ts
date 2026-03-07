@@ -21,6 +21,13 @@ export interface FreeBusyResult {
   busySlots: BusySlot[];
 }
 
+/** Metadata about a calendar resource. */
+export interface CalendarMetadata {
+  externalId: string;
+  name: string;
+  description: string | null;
+}
+
 /** Result of an event creation. */
 export interface CreateEventResult {
   eventId: string;
@@ -42,6 +49,14 @@ export interface CreateEventParams {
  * Google Calendar REST API client interface.
  */
 export interface GoogleCalendarClient {
+  /**
+   * Returns metadata (external id, name, description) for the given calendar.
+   *
+   * @param calendarId - The calendar email / id.
+   * @returns The calendar metadata.
+   */
+  getCalendarMetadata(calendarId: string): Promise<CalendarMetadata>;
+
   /**
    * Returns the IANA timezone of the given calendar.
    *
@@ -79,12 +94,19 @@ export interface GoogleCalendarClient {
 export class RealGoogleCalendarClient implements GoogleCalendarClient {
   constructor(private readonly accessToken: string) {}
 
+  /** {@inheritDoc GoogleCalendarClient.getCalendarMetadata} */
+  async getCalendarMetadata(calendarId: string): Promise<CalendarMetadata> {
+    const body = await this.fetchCalendarResource(calendarId);
+    return {
+      externalId: body.id,
+      name: body.summary,
+      description: body.description ?? null,
+    };
+  }
+
   /** {@inheritDoc GoogleCalendarClient.getCalendarTimezone} */
   async getCalendarTimezone(calendarId: string): Promise<string> {
-    const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}`;
-    const res = await fetch(url, { headers: this.authHeaders() });
-    await this.assertOk(res);
-    const body = await res.json() as { timeZone: string };
+    const body = await this.fetchCalendarResource(calendarId);
     return body.timeZone;
   }
 
@@ -129,6 +151,18 @@ export class RealGoogleCalendarClient implements GoogleCalendarClient {
     };
   }
 
+  private async fetchCalendarResource(calendarId: string) {
+    const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}`;
+    const res = await fetch(url, { headers: this.authHeaders() });
+    await this.assertOk(res);
+    return await res.json() as {
+      id: string;
+      summary: string;
+      description?: string;
+      timeZone: string;
+    };
+  }
+
   private authHeaders(): Record<string, string> {
     return { Authorization: `Bearer ${this.accessToken}` };
   }
@@ -149,6 +183,15 @@ export class StubGoogleCalendarClient implements GoogleCalendarClient {
   public timezone = 'America/New_York';
   public busySlots: BusySlot[] = [];
   public createdEvents: CreateEventParams[] = [];
+  public metadata: CalendarMetadata = {
+    externalId: 'stub-calendar-id',
+    name: 'Stub Calendar',
+    description: null,
+  };
+
+  async getCalendarMetadata(): Promise<CalendarMetadata> {
+    return this.metadata;
+  }
 
   async getCalendarTimezone(): Promise<string> {
     return this.timezone;

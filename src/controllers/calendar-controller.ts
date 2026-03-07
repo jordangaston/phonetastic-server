@@ -4,6 +4,8 @@ import { container } from 'tsyringe';
 import { CalendarRepository } from '../repositories/calendar-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
 import type { GoogleOAuthService } from '../services/google-oauth-service.js';
+import type { GoogleCalendarClient } from '../services/google-calendar-client.js';
+import { RealGoogleCalendarClient } from '../services/google-calendar-client.js';
 import { authGuard } from '../middleware/auth.js';
 import { BadRequestError } from '../lib/errors.js';
 import { env } from '../config/env.js';
@@ -43,11 +45,16 @@ export async function calendarController(app: FastifyInstance): Promise<void> {
     if (!user?.companyId) throw new BadRequestError('User has no company');
 
     const tokens = await googleOAuth.exchangeCode(code);
+    const calendarClient = resolveCalendarClient(tokens.accessToken);
+    const metadata = await calendarClient.getCalendarMetadata(parsed.email);
 
     await calendarRepo.create({
       userId: parsed.userId,
       companyId: user.companyId,
       provider: 'google',
+      externalId: metadata.externalId,
+      name: metadata.name,
+      description: metadata.description,
       email: parsed.email,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -56,6 +63,19 @@ export async function calendarController(app: FastifyInstance): Promise<void> {
 
     return reply.redirect(`${env.APP_DEEPLINK_SCHEME}calendar/connected`);
   });
+}
+
+/**
+ * Resolves a GoogleCalendarClient for the given access token.
+ *
+ * @param accessToken - A valid OAuth2 access token.
+ * @returns A GoogleCalendarClient instance.
+ */
+function resolveCalendarClient(accessToken: string): GoogleCalendarClient {
+  if (container.isRegistered('GoogleCalendarClient')) {
+    return container.resolve<GoogleCalendarClient>('GoogleCalendarClient');
+  }
+  return new RealGoogleCalendarClient(accessToken);
 }
 
 /**

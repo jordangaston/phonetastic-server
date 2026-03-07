@@ -4,6 +4,7 @@ import { createDb, type Database } from '../db/index.js';
 import { StubOtpProvider, TwilioVerifyOtpProvider, type OtpProvider } from '../services/otp-provider.js';
 import { StubLiveKitService, LiveKitServiceImpl, type LiveKitService } from '../services/livekit-service.js';
 import { StubGoogleOAuthService, RealGoogleOAuthService, type GoogleOAuthService } from '../services/google-oauth-service.js';
+import type { GoogleCalendarClient } from '../services/google-calendar-client.js';
 import { StubFirecrawlService, RealFirecrawlService, type FirecrawlService } from '../services/firecrawl-service.js';
 import { PhoneNumberRepository } from '../repositories/phone-number-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
@@ -83,6 +84,7 @@ export function setupContainer(overrides?: {
   otpProvider?: OtpProvider;
   livekitService?: LiveKitService;
   googleOAuthService?: GoogleOAuthService;
+  googleCalendarClient?: GoogleCalendarClient;
   firecrawlService?: FirecrawlService;
 }): void {
   const db = overrides?.db ?? createDb();
@@ -93,6 +95,9 @@ export function setupContainer(overrides?: {
   container.registerInstance<LiveKitService>('LiveKitService', overrides?.livekitService ?? createLiveKitService());
   container.registerInstance<GoogleOAuthService>('GoogleOAuthService', overrides?.googleOAuthService ?? createGoogleOAuthService());
   container.registerInstance<FirecrawlService>('FirecrawlService', overrides?.firecrawlService ?? createFirecrawlService());
+  if (overrides?.googleCalendarClient) {
+    container.registerInstance<GoogleCalendarClient>('GoogleCalendarClient', overrides.googleCalendarClient);
+  }
 
   container.register('PhoneNumberRepository', { useClass: PhoneNumberRepository });
   container.register('UserRepository', { useClass: UserRepository });

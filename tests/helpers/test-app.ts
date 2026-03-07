@@ -4,6 +4,7 @@ import { createDb, type Database } from '../../src/db/index.js';
 import { StubOtpProvider } from '../../src/services/otp-provider.js';
 import { StubLiveKitService } from '../../src/services/livekit-service.js';
 import { StubGoogleOAuthService } from '../../src/services/google-oauth-service.js';
+import { StubGoogleCalendarClient } from '../../src/services/google-calendar-client.js';
 import { StubFirecrawlService } from '../../src/services/firecrawl-service.js';
 import { setupContainer } from '../../src/config/container.js';
 import { buildApp } from '../../src/app.js';
@@ -44,6 +45,7 @@ export async function getTestApp(): Promise<FastifyInstance> {
       otpProvider: getStubOtpProvider(),
       livekitService: new StubLiveKitService(),
       googleOAuthService: new StubGoogleOAuthService(),
+      googleCalendarClient: new StubGoogleCalendarClient(),
       firecrawlService: new StubFirecrawlService(),
     });
     app = await buildApp({ logger: false, dbos: false });
