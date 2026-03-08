@@ -6,6 +6,7 @@ import { StubLiveKitService, LiveKitServiceImpl, type LiveKitService } from '../
 import { StubGoogleOAuthService, RealGoogleOAuthService, type GoogleOAuthService } from '../services/google-oauth-service.js';
 import type { GoogleCalendarClient } from '../services/google-calendar-client.js';
 import { StubFirecrawlService, RealFirecrawlService, type FirecrawlService } from '../services/firecrawl-service.js';
+import { OpenAIEmbeddingService, StubEmbeddingService, type EmbeddingService } from '../services/embedding-service.js';
 import { PhoneNumberRepository } from '../repositories/phone-number-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
 import { BotRepository } from '../repositories/bot-repository.js';
@@ -65,6 +66,13 @@ function createFirecrawlService(): FirecrawlService {
   return new StubFirecrawlService();
 }
 
+function createEmbeddingService(): EmbeddingService {
+  if (env.OPENAI_API_KEY) {
+    return new OpenAIEmbeddingService();
+  }
+  return new StubEmbeddingService();
+}
+
 /**
  * Initializes the Tsyringe DI container with core dependencies.
  *
@@ -77,6 +85,7 @@ function createFirecrawlService(): FirecrawlService {
  * @param overrides.livekitService - A custom LiveKitService implementation.
  * @param overrides.googleOAuthService - A custom GoogleOAuthService implementation.
  * @param overrides.firecrawlService - A custom FirecrawlService implementation.
+ * @param overrides.embeddingService - A custom EmbeddingService implementation.
  */
 export function setupContainer(overrides?: {
   db?: Database;
@@ -86,6 +95,7 @@ export function setupContainer(overrides?: {
   googleOAuthService?: GoogleOAuthService;
   googleCalendarClient?: GoogleCalendarClient;
   firecrawlService?: FirecrawlService;
+  embeddingService?: EmbeddingService;
 }): void {
   const db = overrides?.db ?? createDb();
   container.registerInstance<Database>('Database', db);
@@ -95,6 +105,7 @@ export function setupContainer(overrides?: {
   container.registerInstance<LiveKitService>('LiveKitService', overrides?.livekitService ?? createLiveKitService());
   container.registerInstance<GoogleOAuthService>('GoogleOAuthService', overrides?.googleOAuthService ?? createGoogleOAuthService());
   container.registerInstance<FirecrawlService>('FirecrawlService', overrides?.firecrawlService ?? createFirecrawlService());
+  container.registerInstance<EmbeddingService>('EmbeddingService', overrides?.embeddingService ?? createEmbeddingService());
   if (overrides?.googleCalendarClient) {
     container.registerInstance<GoogleCalendarClient>('GoogleCalendarClient', overrides.googleCalendarClient);
   }

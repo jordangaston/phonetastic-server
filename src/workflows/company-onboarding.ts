@@ -6,6 +6,7 @@ import type { CompanyService } from '../services/company-service.js';
 import type { ExtractedFaq, ExtractedOffering } from '../baml_client/index.js';
 import { b } from '../baml_client/index.js';
 import type { FaqRepository } from '../repositories/faq-repository.js';
+import type { EmbeddingService } from '../services/embedding-service.js';
 import type { OfferingRepository } from '../repositories/offering-repository.js';
 import { stripHtml } from './company-onboarding/parsers/parser-utils.js';
 import type { CompanyData } from './company-onboarding/parsers/parser-utils.js';
@@ -47,7 +48,9 @@ export class CompanyOnboarding {
     const businessType = await CompanyOnboarding.classifyBusinessType(html);
     const companyData = await ExtractCompany.run(siteUrl, siteMap);
     const { faqs, offers } = await ExtractOffersAndFAQs.run(siteMap, businessType ?? '');
-    return CompanyOnboarding.persist(companyData, businessType, siteUrl, userId, faqs, offers);
+    const result = await CompanyOnboarding.persist(companyData, businessType, siteUrl, userId, faqs, offers);
+    await CompanyOnboarding.embedFaqs(result.companyId);
+    return result;
   }
 
   /**
@@ -136,5 +139,27 @@ export class CompanyOnboarding {
       }
       return { companyId: company.id };
     });
+  }
+
+  /**
+   * Step: generates vector embeddings for all FAQ questions of a company.
+   *
+   * @precondition FAQs must already be persisted for the given company.
+   * @postcondition Each FAQ row has its embedding column populated.
+   * @param companyId - The company whose FAQ embeddings to generate.
+   */
+  @DBOS.step(RETRY_CONFIG)
+  static async embedFaqs(companyId: number): Promise<void> {
+    const faqRepo = container.resolve<FaqRepository>('FaqRepository');
+    const embeddingService = container.resolve<EmbeddingService>('EmbeddingService');
+
+    const rows = await faqRepo.findByCompanyId(companyId);
+    if (rows.length === 0) return;
+
+    const questions = rows.map((r) => r.question);
+    const embeddings = await embeddingService.embed(questions);
+
+    const updates = rows.map((r, i) => ({ id: r.id, embedding: embeddings[i] }));
+    await faqRepo.updateEmbeddings(updates);
   }
 }

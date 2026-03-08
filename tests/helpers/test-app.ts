@@ -6,6 +6,7 @@ import { StubLiveKitService } from '../../src/services/livekit-service.js';
 import { StubGoogleOAuthService } from '../../src/services/google-oauth-service.js';
 import { StubGoogleCalendarClient } from '../../src/services/google-calendar-client.js';
 import { StubFirecrawlService } from '../../src/services/firecrawl-service.js';
+import { StubEmbeddingService } from '../../src/services/embedding-service.js';
 import { setupContainer } from '../../src/config/container.js';
 import { buildApp } from '../../src/app.js';
 import type { FastifyInstance } from 'fastify';
@@ -47,6 +48,7 @@ export async function getTestApp(): Promise<FastifyInstance> {
       googleOAuthService: new StubGoogleOAuthService(),
       googleCalendarClient: new StubGoogleCalendarClient(),
       firecrawlService: new StubFirecrawlService(),
+      embeddingService: new StubEmbeddingService(),
     });
     app = await buildApp({ logger: false, dbos: false });
     await app.ready();

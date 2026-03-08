@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, text, vector } from 'drizzle-orm/pg-core';
 import { companies } from './companies';
 
 export const faqs = pgTable('faqs', {
@@ -8,4 +8,5 @@ export const faqs = pgTable('faqs', {
     .references(() => companies.id),
   question: text('question').notNull(),
   answer: text('answer').notNull(),
+  embedding: vector('embedding', { dimensions: 1536 }),
 });

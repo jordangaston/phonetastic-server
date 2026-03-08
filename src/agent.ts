@@ -14,6 +14,7 @@ import type { LiveKitService } from './services/livekit-service.js';
 import { RoomEvent, DisconnectReason } from '@livekit/rtc-node';
 import { createEndCallTool } from './agent-tools/end-call-tool.js';
 import { createGetAvailabilityTool, createBookAppointmentTool } from './agent-tools/calendar-tools.js';
+import { createCompanyInfoTool } from './agent-tools/company-info-tool.js';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
 
@@ -96,11 +97,13 @@ export default defineAgent({
       }
     });
 
+    const tools: Record<string, any> = {
+      endCall: createEndCallTool(),
+    };
+
     const agent = new voice.Agent({
       instructions: 'You are a helpful phone assistant. Answer questions clearly and concisely.',
-      tools: {
-        endCall: createEndCallTool()
-      }
+      tools,
     });
     await session.start({ agent, room: ctx.room });
     await ctx.connect();
@@ -131,6 +134,10 @@ export default defineAgent({
       session.shutdown({ drain: true, reason: voice.CloseReason.ERROR });
       await ctx.room.disconnect();
       return;
+    }
+
+    if (callContext) {
+      tools.companyInfo = createCompanyInfoTool(callContext.companyId);
     }
 
     log().info('Generating initial reply');
