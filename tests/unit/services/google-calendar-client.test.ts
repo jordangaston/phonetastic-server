@@ -15,11 +15,50 @@ describe('RealGoogleCalendarClient', () => {
     vi.restoreAllMocks();
   });
 
+  describe('getCalendarMetadata', () => {
+    it('returns the calendar metadata', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'cal-ext-id',
+          summary: 'My Calendar',
+          description: 'Work calendar',
+          timeZone: 'America/Chicago',
+        }),
+      });
+
+      const meta = await client.getCalendarMetadata('user@example.com');
+
+      expect(meta.externalId).toBe('cal-ext-id');
+      expect(meta.name).toBe('My Calendar');
+      expect(meta.description).toBe('Work calendar');
+    });
+
+    it('returns null description when not present', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'cal-ext-id',
+          summary: 'My Calendar',
+          timeZone: 'America/Chicago',
+        }),
+      });
+
+      const meta = await client.getCalendarMetadata('user@example.com');
+
+      expect(meta.description).toBeNull();
+    });
+  });
+
   describe('getCalendarTimezone', () => {
     it('returns the calendar timezone', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ timeZone: 'America/Chicago' }),
+        json: async () => ({
+          id: 'cal-id',
+          summary: 'Cal',
+          timeZone: 'America/Chicago',
+        }),
       });
 
       const tz = await client.getCalendarTimezone('user@example.com');

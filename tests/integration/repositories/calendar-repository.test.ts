@@ -39,12 +39,27 @@ describe('CalendarRepository', () => {
       userId,
       companyId,
       provider: 'google',
+      externalId: 'ext-cal-id',
+      name: 'Test Calendar',
+      description: 'A test calendar',
       email: 'test@example.com',
       accessToken: 'access-123',
       refreshToken: 'refresh-123',
       tokenExpiresAt: new Date('2026-12-31'),
     });
   }
+
+  describe('create', () => {
+    it('persists calendar metadata fields', async () => {
+      const company = await companyFactory.create();
+      const user = await makeUser(company.id);
+      const calendar = await makeCalendar(user.id, company.id);
+
+      expect(calendar.externalId).toBe('ext-cal-id');
+      expect(calendar.name).toBe('Test Calendar');
+      expect(calendar.description).toBe('A test calendar');
+    });
+  });
 
   describe('findByCompanyId', () => {
     it('returns the calendar for the given company', async () => {

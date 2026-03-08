@@ -14,8 +14,8 @@ export class CalendarRepository {
    * Persists a new calendar record.
    *
    * @precondition The referenced userId and companyId must exist.
-   * @postcondition A new calendar row is inserted.
-   * @param data - The calendar fields.
+   * @postcondition A new calendar row is inserted with provider metadata.
+   * @param data - The calendar fields including externalId, name, and description.
    * @param tx - Optional transaction to run within.
    * @returns The created calendar row.
    */
@@ -23,6 +23,9 @@ export class CalendarRepository {
     userId: number;
     companyId: number;
     provider: 'google';
+    externalId: string;
+    name: string;
+    description: string | null;
     email: string;
     accessToken: string;
     refreshToken: string;
