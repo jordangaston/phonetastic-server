@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, cosineDistance } from 'drizzle-orm';
 import { faqs } from '../db/schema/faqs.js';
 import type { Database, Transaction } from '../db/index.js';
 
@@ -76,14 +76,15 @@ export class FaqRepository {
     queryEmbedding: number[],
     limit = 5,
   ): Promise<FaqSearchResult[]> {
-    const vectorLiteral = `[${queryEmbedding.join(',')}]`;
+    const distance = cosineDistance(faqs.embedding, queryEmbedding);
+    const similarity = sql<number>`1 - (${distance})`.as('similarity');
     const rows = await this.db
       .select({
         id: faqs.id,
         companyId: faqs.companyId,
         question: faqs.question,
         answer: faqs.answer,
-        similarity: sql<number>`1 - (${faqs.embedding} <=> ${vectorLiteral}::vector)`.as('similarity'),
+        similarity,
       })
       .from(faqs)
       .where(
@@ -92,7 +93,7 @@ export class FaqRepository {
           sql`${faqs.embedding} IS NOT NULL`,
         ),
       )
-      .orderBy(sql`${faqs.embedding} <=> ${vectorLiteral}::vector`)
+      .orderBy(distance)
       .limit(limit);
 
     return rows;
