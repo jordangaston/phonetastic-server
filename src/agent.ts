@@ -140,6 +140,8 @@ export default defineAgent({
 
     if (callContext) {
       tools.companyInfo = createCompanyInfoTool(callContext.companyId);
+      tools.getAvailability = createGetAvailabilityTool(callContext.userId);
+      tools.bookAppointment = createBookAppointmentTool(callContext.userId);
     }
 
     log().info('Generating initial reply');
