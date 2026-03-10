@@ -21,6 +21,7 @@ export async function callSettingsController(app: FastifyInstance): Promise<void
         company_phone_number_id?: number;
         is_bot_enabled?: boolean;
         rings_before_bot_answer?: number;
+        answer_calls_from?: string;
       };
     };
   }>('/v1/call_settings', { preHandler: [authGuard] }, async (request, reply) => {
@@ -33,16 +34,28 @@ export async function callSettingsController(app: FastifyInstance): Promise<void
       companyPhoneNumberId: call_settings.company_phone_number_id,
       isBotEnabled: call_settings.is_bot_enabled,
       ringsBeforeBotAnswer: call_settings.rings_before_bot_answer,
+      answerCallsFrom: call_settings.answer_calls_from as any,
     });
 
     return reply.send({
-      call_settings: {
-        id: updated!.id,
-        forwarded_phone_number_id: updated!.forwardedPhoneNumberId,
-        company_phone_number_id: updated!.companyPhoneNumberId,
-        is_bot_enabled: updated!.isBotEnabled,
-        rings_before_bot_answer: updated!.ringsBeforeBotAnswer,
-      },
+      call_settings: formatCallSettings(updated!),
     });
   });
+}
+
+/**
+ * Formats a call settings row to the API response shape.
+ *
+ * @param cs - The call settings row from the database.
+ * @returns A snake_case representation of the call settings.
+ */
+export function formatCallSettings(cs: any) {
+  return {
+    id: cs.id,
+    forwarded_phone_number_id: cs.forwardedPhoneNumberId,
+    company_phone_number_id: cs.companyPhoneNumberId,
+    is_bot_enabled: cs.isBotEnabled,
+    rings_before_bot_answer: cs.ringsBeforeBotAnswer,
+    answer_calls_from: cs.answerCallsFrom,
+  };
 }

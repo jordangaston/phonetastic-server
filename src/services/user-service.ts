@@ -187,6 +187,7 @@ export class UserService {
         company_phone_number_id: callSettings.companyPhoneNumberId,
         is_bot_enabled: callSettings.isBotEnabled,
         rings_before_bot_answer: callSettings.ringsBeforeBotAnswer,
+        answer_calls_from: callSettings.answerCallsFrom,
       };
     }
 

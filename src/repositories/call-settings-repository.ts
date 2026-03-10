@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import { eq } from 'drizzle-orm';
 import { callSettings } from '../db/schema/call-settings.js';
 import type { Database, Transaction } from '../db/index.js';
+import type { AnswerCallsFrom } from '../db/schema/enums.js';
 
 /**
  * Data access layer for call settings.
@@ -51,6 +52,7 @@ export class CallSettingsRepository {
     companyPhoneNumberId?: number;
     isBotEnabled?: boolean;
     ringsBeforeBotAnswer?: number;
+    answerCallsFrom?: AnswerCallsFrom;
   }, tx?: Transaction) {
     const [row] = await (tx ?? this.db).update(callSettings).set(data).where(eq(callSettings.id, id)).returning();
     return row;

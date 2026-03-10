@@ -39,6 +39,24 @@ describe('Call Settings Controller', () => {
       const body = response.json();
       expect(body.call_settings.is_bot_enabled).toBe(true);
       expect(body.call_settings.rings_before_bot_answer).toBe(3);
+      expect(body.call_settings.answer_calls_from).toBe('everyone');
+    });
+
+    it('updates answer_calls_from field', async () => {
+      const { accessToken } = await createTestUser(app);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/v1/call_settings',
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: {
+          call_settings: { answer_calls_from: 'contacts' },
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.call_settings.answer_calls_from).toBe('contacts');
     });
 
     it('returns 401 without auth', async () => {
