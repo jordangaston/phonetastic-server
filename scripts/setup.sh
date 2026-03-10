@@ -101,27 +101,32 @@ npx baml-cli generate
 log "Enabling pgvector extension..."
 bash "$ROOT_DIR/scripts/enable-pgvector.sh"
 
-# ── 8. Drizzle migrations ──────────────────────────────────────────────────────
+# ── 8. Drizzle migrations ────────────────────────────────────────────────────
 
 log "Running Drizzle migrations..."
 npm run db:migrate
 
-# ── 9. DBOS migrations ─────────────────────────────────────────────────────────
+# ── 9. Test schema setup ────────────────────────────────────────────────────
+
+log "Creating test schema and running migrations..."
+npm run db:migrate:test
+
+# ── 10. DBOS migrations ─────────────────────────────────────────────────────
 
 log "Running DBOS migrations..."
 npx dbos migrate
 
-# ── 10. Seed voices ────────────────────────────────────────────────────────────
+# ── 11. Seed voices ─────────────────────────────────────────────────────────
 
 log "Seeding voices..."
 npm run db:seed-voices
 
-# ── 11. Build ──────────────────────────────────────────────────────────────────
+# ── 12. Build ────────────────────────────────────────────────────────────────
 
 log "Building application..."
 npm run build
 
-# ── 12. Confirm environment ────────────────────────────────────────────────────
+# ── 13. Confirm environment ─────────────────────────────────────────────────
 
 echo ""
 log "Before continuing, make sure all API keys and service credentials are filled in at: $ENV_FILE"
@@ -131,12 +136,12 @@ if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
   exit 1
 fi
 
-# ── 13. Tunnel ──────────────────────────────────────────────────────────────────
+# ── 14. Tunnel ───────────────────────────────────────────────────────────────
 
 log "Starting ngrok tunnel..."
 npm run tunnel&
 
-# ── 14. Start ──────────────────────────────────────────────────────────────────
+# ── 15. Start ────────────────────────────────────────────────────────────────
 
 log "Starting application..."
 npm start

@@ -11,6 +11,7 @@ export default defineConfig({
         singleFork: true,
       },
     },
+    globalSetup: ['tests/helpers/global-setup.ts'],
     setupFiles: ['tests/helpers/setup.ts'],
   },
 });

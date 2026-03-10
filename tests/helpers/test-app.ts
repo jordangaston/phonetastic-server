@@ -16,11 +16,11 @@ let app: FastifyInstance | undefined;
 let otpProvider: StubOtpProvider | undefined;
 
 /**
- * Returns a shared test database instance.
+ * Returns a shared test database instance configured to use the "test" schema.
  */
 export function getTestDb(): Database {
   if (!db) {
-    db = createDb();
+    db = createDb({ searchPath: 'test,public' });
   }
   return db;
 }
