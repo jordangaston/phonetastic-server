@@ -15,6 +15,7 @@ import { RoomEvent, DisconnectReason } from '@livekit/rtc-node';
 import { createEndCallTool } from './agent-tools/end-call-tool.js';
 import { createGetAvailabilityTool, createBookAppointmentTool } from './agent-tools/calendar-tools.js';
 import { createCompanyInfoTool } from './agent-tools/company-info-tool.js';
+import { createTodoTool } from './agent-tools/todo-tool.js';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
 
@@ -99,6 +100,7 @@ export default defineAgent({
 
     const tools: Record<string, any> = {
       endCall: createEndCallTool(),
+      todo: createTodoTool(),
     };
 
     const agent = new voice.Agent({
