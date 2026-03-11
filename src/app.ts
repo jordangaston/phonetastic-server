@@ -10,6 +10,8 @@ import { callController } from './controllers/call-controller.js';
 import { phoneNumberController } from './controllers/phone-number-controller.js';
 import { callSettingsController } from './controllers/call-settings-controller.js';
 import { calendarController } from './controllers/calendar-controller.js';
+import { skillController } from './controllers/skill-controller.js';
+import { botSkillController } from './controllers/bot-skill-controller.js';
 
 /**
  * Builds and configures the Fastify application instance.
@@ -39,6 +41,8 @@ export async function buildApp(options?: { logger?: boolean; dbos?: boolean }): 
   await app.register(phoneNumberController);
   await app.register(callSettingsController);
   await app.register(calendarController);
+  await app.register(skillController);
+  await app.register(botSkillController);
 
   if (options?.dbos !== false) {
     const { workflowController } = await import('./controllers/workflow-controller.js');

@@ -24,6 +24,8 @@ import { OfferingRepository } from '../repositories/offering-repository.js';
 import { AddressRepository } from '../repositories/address-repository.js';
 import { OperationHourRepository } from '../repositories/operation-hour-repository.js';
 import { EndUserRepository } from '../repositories/end-user-repository.js';
+import { SkillRepository } from '../repositories/skill-repository.js';
+import { BotSkillRepository } from '../repositories/bot-skill-repository.js';
 import { AuthService } from '../services/auth-service.js';
 import { CompanyService } from '../services/company-service.js';
 import { OtpService } from '../services/otp-service.js';
@@ -31,6 +33,8 @@ import { UserService } from '../services/user-service.js';
 import { PhoneNumberService } from '../services/phone-number-service.js';
 import { CallService } from '../services/call-service.js';
 import { CalendarService } from '../services/calendar-service.js';
+import { SkillService } from '../services/skill-service.js';
+import { BotSkillService } from '../services/bot-skill-service.js';
 import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
 
@@ -127,6 +131,8 @@ export function setupContainer(overrides?: {
   container.register('AddressRepository', { useClass: AddressRepository });
   container.register('OperationHourRepository', { useClass: OperationHourRepository });
   container.register('EndUserRepository', { useClass: EndUserRepository });
+  container.register('SkillRepository', { useClass: SkillRepository });
+  container.register('BotSkillRepository', { useClass: BotSkillRepository });
   container.register('AuthService', { useClass: AuthService });
   container.register('CompanyService', { useClass: CompanyService });
   container.register('OtpService', { useClass: OtpService });
@@ -134,6 +140,8 @@ export function setupContainer(overrides?: {
   container.register('PhoneNumberService', { useClass: PhoneNumberService });
   container.register('CallService', { useClass: CallService });
   container.register('CalendarService', { useClass: CalendarService });
+  container.register('SkillService', { useClass: SkillService });
+  container.register('BotSkillService', { useClass: BotSkillService });
 }
 
 export { container };
