@@ -49,7 +49,7 @@ time: {{ time || 'unknown' }}
 ---
 
 <soul>
-You are not a chatbot. You are the worlds greatest executive assistant.
+You are not a chatbot.  You are the worlds greatest executive assistant.
 ## Core Truths
 - **Be genuinely helpful, not performatively helpful.** Skip the "Great question!" and "I'd be happy to help!" — just help. Actions speak louder than filler words.
 - **Earn trust through competence.** Your human has trusted you to represent them and their business.  Guard their reputation with your life.  Be careful with customer facing words and messages.
@@ -101,7 +101,7 @@ function sleep(ms: number) {
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
     proc.userData.vad = await silero.VAD.load({
-      activationThreshold: 0.7,
+      activationThreshold: 0.85,
     });
     setupContainer();
   },
@@ -111,8 +111,7 @@ export default defineAgent({
     const voiceRepository = container.resolve<VoiceRepository>('VoiceRepository');
     const botSettingsRepo = container.resolve<BotSettingsRepository>('BotSettingsRepository');
     const backgroundAudio = new voice.BackgroundAudioPlayer({
-      ambientSound: voice.BuiltinAudioClip.OFFICE_AMBIENCE,
-      thinkingSound: { source: voice.BuiltinAudioClip.KEYBOARD_TYPING2, volume: 0.5 }
+      ambientSound: voice.BuiltinAudioClip.OFFICE_AMBIENCE
     });
     const roomName = ctx.job.room?.name ?? '';
 
@@ -128,10 +127,11 @@ export default defineAgent({
       stt: 'deepgram/nova-3',
       llm: 'openai/gpt-4o',
       tts: `cartesia/sonic:${CARTESIA_VOICE_ID}`,
-      turnDetection: new livekit.turnDetector.MultilingualModel(0.025),
+      turnDetection: new livekit.turnDetector.MultilingualModel(0.3),
       voiceOptions: {
         allowInterruptions: true,
         minInterruptionDuration: 2,
+        minInterruptionWords: 5,
         maxToolSteps: 10
       }
     });
@@ -173,7 +173,7 @@ export default defineAgent({
     });
 
     await session.start({ agent, room: ctx.room });
-    // await backgroundAudio.start({ room: ctx.room, agentSession: session });
+    await backgroundAudio.start({ room: ctx.room, agentSession: session });
     await ctx.connect();
 
     log().info({ roomName }, 'Call connected');
@@ -192,6 +192,30 @@ export default defineAgent({
         callContext = await callService.initializeInboundCall(roomName, from, to);
         log().info('Inbound call initialized');
       }
+
+
+      const botVoice = await voiceRepository.findByBotId(callContext?.botId);
+      if (botVoice) {
+        log().info({ name: botVoice.name, externalId: botVoice.externalId, id: botVoice.id }, 'Using configured voice');
+        session.tts = inference.TTS.fromModelString(`cartesia/sonic:${botVoice.externalId}`);
+      }
+
+      if (callContext) {
+        tools.companyInfo = createCompanyInfoTool(callContext.companyId);
+        tools.getAvailability = createGetAvailabilityTool(callContext.userId);
+        tools.bookAppointment = createBookAppointmentTool(callContext.userId);
+      }
+
+      log().info('Generating initial reply');
+      const botSettings = await botSettingsRepo.findByUserId(callContext!.userId);
+      if (botSettings && botSettings.callGreetingMessage) {
+        await session.say(botSettings.callGreetingMessage);
+      } else {
+        session.generateReply({
+          instructions: 'Greet the caller and ask them how you can help them today.',
+        });
+      }
+
     } catch (err: any) {
       log().error({ err }, 'Failed to initialize inbound call');
       await session.generateReply({
@@ -220,8 +244,9 @@ export default defineAgent({
     log().info('Generating initial reply');
     const botSettings = await botSettingsRepo.findByUserId(callContext!.userId);
     if (botSettings && botSettings.callGreetingMessage) {
-      const speechHandle = await session.say(botSettings.callGreetingMessage, { allowInterruptions: false });
-      await speechHandle.waitForPlayout()
+      await session.generateReply({
+        instructions: `Make the following message sound natural and conversational: "${botSettings.callGreetingMessage}"`,
+      });
     } else {
       session.generateReply({
         instructions: 'Greet the caller and ask them how you can help them today.',
