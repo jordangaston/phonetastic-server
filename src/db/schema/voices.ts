@@ -12,4 +12,5 @@ export const voices = pgTable('voices', {
   name: varchar('name', { length: 255 }).notNull(),
   snippet: bytea('snippet').notNull(),
   snippetMimeType: varchar('snippet_mime_type', { length: 255 }).notNull(),
+  externalId: varchar('external_id', { length: 255 }).notNull()
 });

@@ -4,6 +4,7 @@ import {
   defineAgent,
   log,
   voice,
+  inference
 } from '@livekit/agents';
 import * as livekit from '@livekit/agents-plugin-livekit';
 import * as silero from '@livekit/agents-plugin-silero';
@@ -16,6 +17,7 @@ import { createEndCallTool } from './agent-tools/end-call-tool.js';
 import { createGetAvailabilityTool, createBookAppointmentTool } from './agent-tools/calendar-tools.js';
 import { createCompanyInfoTool } from './agent-tools/company-info-tool.js';
 import { createTodoTool } from './agent-tools/todo-tool.js';
+import { VoiceRepository } from './repositories/voice-repository.js';
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
 
@@ -56,11 +58,17 @@ export default defineAgent({
   entry: async (ctx: JobContext) => {
     const callService = container.resolve<CallService>('CallService');
     const livekitService = container.resolve<LiveKitService>('LiveKitService');
+    const voiceRepository = container.resolve<VoiceRepository>('VoiceRepository');
+    const backgroundAudio = new voice.BackgroundAudioPlayer({
+      ambientSound: voice.BuiltinAudioClip.OFFICE_AMBIENCE,
+      thinkingSound: { source: voice.BuiltinAudioClip.KEYBOARD_TYPING2, volume: 0.5 }
+    });
     const roomName = ctx.job.room?.name ?? '';
 
     ctx.room.on(RoomEvent.ParticipantDisconnected, async (participant) => {
       const { state, failureReason } = disconnectReasonToState(participant.disconnectReason);
       log().info({ state, failureReason }, 'Participant disconnected');
+      await backgroundAudio.close()
       await callService.onEndUserDisconnected(roomName, state, failureReason);
     });
 
@@ -70,6 +78,11 @@ export default defineAgent({
       llm: 'openai/gpt-4o',
       tts: `cartesia/sonic:${CARTESIA_VOICE_ID}`,
       turnDetection: new livekit.turnDetector.MultilingualModel(),
+      voiceOptions: {
+        allowInterruptions: true,
+        minInterruptionDuration: 2,
+        maxToolSteps: 10
+      }
     });
 
     let transcriptSequence = 0;
@@ -107,7 +120,9 @@ export default defineAgent({
       instructions: 'You are a helpful phone assistant. Answer questions clearly and concisely.',
       tools,
     });
+
     await session.start({ agent, room: ctx.room });
+    await backgroundAudio.start({ room: ctx.room, agentSession: session });
     await ctx.connect();
 
     log().info({ roomName }, 'Call connected');
@@ -136,6 +151,12 @@ export default defineAgent({
       session.shutdown({ drain: true, reason: voice.CloseReason.ERROR });
       await ctx.room.disconnect();
       return;
+    }
+
+    const botVoice = await voiceRepository.findByBotId(callContext?.botId);
+    if (botVoice) {
+      log().info({ name: botVoice.name, externalId: botVoice.externalId, id: botVoice.id }, 'Using configured voice');
+      session.tts = inference.TTS.fromModelString(`cartesia/sonic:${botVoice.externalId}`);
     }
 
     if (callContext) {

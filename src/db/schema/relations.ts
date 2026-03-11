@@ -8,6 +8,8 @@ import { operationHours } from './operation-hours';
 import { phoneNumbers } from './phone-numbers';
 import { faqs } from './faqs';
 import { offerings } from './offerings';
+import { users } from './users';
+import { bots } from './bots';
 
 export const callsRelations = relations(calls, ({ one }) => ({
   transcript: one(callTranscripts, { fields: [calls.id], references: [callTranscripts.callId] }),
@@ -48,4 +50,9 @@ export const faqsRelations = relations(faqs, ({ one }) => ({
 
 export const offeringsRelations = relations(offerings, ({ one }) => ({
   company: one(companies, { fields: [offerings.companyId], references: [companies.id] }),
+}));
+
+export const usersRelations = relations(users, ({ one }) => ({
+  phoneNumber: one(phoneNumbers, { fields: [users.phoneNumberId], references: [phoneNumbers.id] }),
+  bot: one(bots, { fields: [users.id], references: [bots.userId] }),
 }));

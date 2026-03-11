@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { eq, gt, asc } from 'drizzle-orm';
 import { voices } from '../db/schema/voices.js';
+import { botSettings } from '../db/schema/bot-settings.js';
 import type { Database, Transaction } from '../db/index.js';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -10,7 +11,31 @@ const DEFAULT_PAGE_SIZE = 20;
  */
 @injectable()
 export class VoiceRepository {
-  constructor(@inject('Database') private db: Database) {}
+  constructor(@inject('Database') private db: Database) { }
+
+  /**
+   * Finds a voice by bot id.
+   *
+   * @param botId - The bot id.
+   * @param tx - Optional transaction to run within.
+   * @returns The voice row, or null if no voice is found.
+   */
+  async findByBotId(botId: number | undefined, tx?: Transaction) {
+    if (!botId) {
+      return null;
+    }
+
+    const botSettingRow = await (tx ?? this.db).query.botSettings.findFirst({
+      where: eq(botSettings.botId, botId),
+    });
+    if (!botSettingRow) {
+      return null;
+    }
+
+    return (tx ?? this.db).query.voices.findFirst({
+      where: eq(voices.id, botSettingRow.voiceId),
+    });
+  }
 
   /**
    * Returns a page of voices (without snippet data) using cursor-based pagination.

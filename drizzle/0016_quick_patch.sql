@@ -1,0 +1,1 @@
+ALTER TABLE "voices" ADD COLUMN "external_id" varchar(255);

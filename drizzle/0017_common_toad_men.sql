@@ -1,0 +1,1 @@
+ALTER TABLE "voices" ALTER COLUMN "external_id" SET NOT NULL;

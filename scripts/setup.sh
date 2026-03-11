@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PG_FORMULA="postgresql@17"
 
 log()   { echo "==> $1"; }
 error() { echo "ERROR: $1" >&2; exit 1; }
@@ -10,17 +9,13 @@ error() { echo "ERROR: $1" >&2; exit 1; }
 # ── 1. PostgreSQL ──────────────────────────────────────────────────────────────
 
 if ! command -v psql &>/dev/null; then
-  if ! brew list "$PG_FORMULA" &>/dev/null; then
+  PG_FORMULA="$(brew list --formula | grep -E '^postgresql(@[0-9]+)?$' | sort -V | tail -1)"
+  if [ -z "$PG_FORMULA" ]; then
+    PG_FORMULA="postgresql@17"
     log "Installing $PG_FORMULA via Homebrew..."
     brew install "$PG_FORMULA"
   fi
   export PATH="$(brew --prefix "$PG_FORMULA")/bin:$PATH"
-fi
-
-if ! brew services list | grep -q "${PG_FORMULA}.*started"; then
-  log "Starting PostgreSQL..."
-  brew services start "$PG_FORMULA"
-  sleep 3
 fi
 
 # ── 2. Environment file ────────────────────────────────────────────────────────

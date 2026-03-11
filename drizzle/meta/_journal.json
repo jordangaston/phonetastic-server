@@ -113,6 +113,20 @@
       "when": 1773174969459,
       "tag": "0015_woozy_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773187911785,
+      "tag": "0016_quick_patch",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1773189821925,
+      "tag": "0017_common_toad_men",
+      "breakpoints": true
     }
   ]
 }
