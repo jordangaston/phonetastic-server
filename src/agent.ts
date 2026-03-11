@@ -19,6 +19,7 @@ import { createGetAvailabilityTool, createBookAppointmentTool } from './agent-to
 import { createCompanyInfoTool } from './agent-tools/company-info-tool.js';
 import { createTodoTool } from './agent-tools/todo-tool.js';
 import { createLoadSkillTool } from './agent-tools/load-skill-tool.js';
+import { createLoadToolTool } from './agent-tools/load-tool-tool.js';
 import { VoiceRepository } from './repositories/voice-repository.js';
 import { BotSettingsRepository } from './repositories/bot-settings-repository.js';
 
@@ -215,6 +216,7 @@ export default defineAgent({
       tools.getAvailability = createGetAvailabilityTool(callContext.userId);
       tools.bookAppointment = createBookAppointmentTool(callContext.userId);
       tools.loadSkill = createLoadSkillTool(callContext.botId);
+      tools.loadTool = createLoadToolTool(callContext.botId, callContext, tools);
     }
 
     log().info('Generating initial reply');
