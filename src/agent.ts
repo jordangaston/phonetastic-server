@@ -2,11 +2,12 @@ import {
   type JobContext,
   type JobProcess,
   defineAgent,
+  ServerOptions,
   log,
   voice,
-  inference
+  inference,
+  cli
 } from '@livekit/agents';
-import * as livekit from '@livekit/agents-plugin-livekit';
 import * as silero from '@livekit/agents-plugin-silero';
 import 'dotenv/config';
 import { setupContainer, container } from './config/container.js';
@@ -18,6 +19,52 @@ import { createGetAvailabilityTool, createBookAppointmentTool } from './agent-to
 import { createCompanyInfoTool } from './agent-tools/company-info-tool.js';
 import { createTodoTool } from './agent-tools/todo-tool.js';
 import { VoiceRepository } from './repositories/voice-repository.js';
+import { BotSettingsRepository } from './repositories/bot-settings-repository.js';
+
+import { Eta } from 'eta';
+import { env } from './config/env.js';
+import * as livekit from '@livekit/agents-plugin-livekit';
+
+const eta = new Eta();
+
+// company:
+//   id: {{ company.id }}
+//   name: {{ company.name || 'unknown' }}
+//   businessType: {{ company.businessType || 'unknown' }}
+//   email: {{ company.email || 'unknown' }}
+//   website: {{ company.website || 'unknown' }}
+// caller:
+//   id: {{ caller.id }}
+//   firstName: {{ caller.firstName || 'unknown' }}
+//   lastName: {{ caller.lastName || 'unknown' }}
+//   timezone: {{ caller.timezone || 'unknown' }}
+// assistant:
+//    id: {{ assistant.id }}
+//    name: {{ assistant.name || 'unknown' }}
+
+const systemPrompt = `
+---
+time: {{ time || 'unknown' }}
+---
+
+<soul>
+You are not a chatbot. You are the worlds greatest executive assistant.
+## Core Truths
+- **Be genuinely helpful, not performatively helpful.** Skip the "Great question!" and "I'd be happy to help!" — just help. Actions speak louder than filler words.
+- **Earn trust through competence.** Your human has trusted you to represent them and their business.  Guard their reputation with your life.  Be careful with customer facing words and messages.
+- **Be unreasonably hospitable.** Always strive to give the caller more than they expect. Every touchpoint is an opportunity to exceed expectations, and build a lasting relationship with the customer.
+- **Remember you're a guest.** You have access to someone's business — their messages, calendar, and customers. That's intimacy. Treat it with respect.
+- **Find meaning in your work.** Give a shit about the company, the caller, and yourself. Do your best work, every time.  Laugh, smile, and have fun.
+
+## Boundaries
+- **Never disclose sensitive information about the caller or the company.**
+- **Never treat the caller or the company with disrespect.**
+- **Never act deceitfully or dishonestly.**
+
+## Vibe
+Be the assistant you'd actually want to talk to. Concise when needed, thorough when it matters, and cheeky when appropriate.
+</soul>
+`
 
 const CARTESIA_VOICE_ID = '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc';
 
@@ -52,13 +99,16 @@ function sleep(ms: number) {
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
-    proc.userData.vad = await silero.VAD.load();
+    proc.userData.vad = await silero.VAD.load({
+      activationThreshold: 0.7,
+    });
     setupContainer();
   },
   entry: async (ctx: JobContext) => {
     const callService = container.resolve<CallService>('CallService');
     const livekitService = container.resolve<LiveKitService>('LiveKitService');
     const voiceRepository = container.resolve<VoiceRepository>('VoiceRepository');
+    const botSettingsRepo = container.resolve<BotSettingsRepository>('BotSettingsRepository');
     const backgroundAudio = new voice.BackgroundAudioPlayer({
       ambientSound: voice.BuiltinAudioClip.OFFICE_AMBIENCE,
       thinkingSound: { source: voice.BuiltinAudioClip.KEYBOARD_TYPING2, volume: 0.5 }
@@ -77,7 +127,7 @@ export default defineAgent({
       stt: 'deepgram/nova-3',
       llm: 'openai/gpt-4o',
       tts: `cartesia/sonic:${CARTESIA_VOICE_ID}`,
-      turnDetection: new livekit.turnDetector.MultilingualModel(),
+      turnDetection: new livekit.turnDetector.MultilingualModel(0.025),
       voiceOptions: {
         allowInterruptions: true,
         minInterruptionDuration: 2,
@@ -117,12 +167,12 @@ export default defineAgent({
     };
 
     const agent = new voice.Agent({
-      instructions: 'You are a helpful phone assistant. Answer questions clearly and concisely.',
+      instructions: await eta.renderStringAsync(systemPrompt, { time: new Date().toISOString() }),
       tools,
     });
 
     await session.start({ agent, room: ctx.room });
-    await backgroundAudio.start({ room: ctx.room, agentSession: session });
+    // await backgroundAudio.start({ room: ctx.room, agentSession: session });
     await ctx.connect();
 
     log().info({ roomName }, 'Call connected');
@@ -166,8 +216,23 @@ export default defineAgent({
     }
 
     log().info('Generating initial reply');
-    session.generateReply({
-      instructions: 'Say "Hi, I\'m Kate, your virtual assistant. How can I help you today?"',
-    });
+    const botSettings = await botSettingsRepo.findByUserId(callContext!.userId);
+    if (botSettings && botSettings.callGreetingMessage) {
+      const speechHandle = await session.say(botSettings.callGreetingMessage, { allowInterruptions: false });
+      await speechHandle.waitForPlayout()
+    } else {
+      session.generateReply({
+        instructions: 'Greet the caller and ask them how you can help them today.',
+      });
+    }
   }
 });
+
+
+cli.runApp(new ServerOptions({
+  agent: __filename,
+  agentName: 'phonetastic-agent',
+  wsURL: env.LIVEKIT_URL!,
+  apiKey: env.LIVEKIT_API_KEY,
+  apiSecret: env.LIVEKIT_API_SECRET,
+}));
