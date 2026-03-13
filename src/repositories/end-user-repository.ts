@@ -25,6 +25,18 @@ export class EndUserRepository {
   }
 
   /**
+   * Finds an end user by primary key.
+   *
+   * @param id - The end user id.
+   * @param tx - Optional transaction to run within.
+   * @returns The end user row, or undefined.
+   */
+  async findById(id: number, tx?: Transaction) {
+    const [row] = await (tx ?? this.db).select().from(endUsers).where(eq(endUsers.id, id));
+    return row;
+  }
+
+  /**
    * Finds an end user by their phone number FK.
    *
    * @param phoneNumberId - The phone_number_id foreign key.

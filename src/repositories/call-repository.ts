@@ -57,6 +57,19 @@ export class CallRepository {
   }
 
   /**
+   * Finds a call by its external call id with its participants eagerly loaded.
+   *
+   * @param externalCallId - The external call id (e.g. LiveKit room name).
+   * @returns The call row with a nested `participants` array, or undefined.
+   */
+  async findByExternalCallIdWithParticipants(externalCallId: string) {
+    return this.db.query.calls.findFirst({
+      where: eq(calls.externalCallId, externalCallId),
+      with: { participants: true },
+    });
+  }
+
+  /**
    * Returns a page of calls for a company using cursor-based pagination.
    *
    * @param companyId - The company to filter calls by.

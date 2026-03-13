@@ -25,6 +25,18 @@ export class BotRepository {
   }
 
   /**
+   * Finds a bot by primary key.
+   *
+   * @param id - The bot id.
+   * @param tx - Optional transaction to run within.
+   * @returns The bot row, or undefined.
+   */
+  async findById(id: number, tx?: Transaction) {
+    const [row] = await (tx ?? this.db).select().from(bots).where(eq(bots.id, id));
+    return row;
+  }
+
+  /**
    * Finds a bot by its owning user id.
    *
    * @param userId - The user id.

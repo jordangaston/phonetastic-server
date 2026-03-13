@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { calls } from './calls';
+import { callParticipants } from './call-participants';
 import { callTranscripts } from './call-transcripts';
 import { callTranscriptEntries } from './call-transcript-entries';
 import { companies } from './companies';
@@ -13,8 +14,13 @@ import { bots } from './bots';
 import { skills } from './skills';
 import { botSkills } from './bot-skills';
 
-export const callsRelations = relations(calls, ({ one }) => ({
+export const callsRelations = relations(calls, ({ one, many }) => ({
   transcript: one(callTranscripts, { fields: [calls.id], references: [callTranscripts.callId] }),
+  participants: many(callParticipants),
+}));
+
+export const callParticipantsRelations = relations(callParticipants, ({ one }) => ({
+  call: one(calls, { fields: [callParticipants.callId], references: [calls.id] }),
 }));
 
 export const callTranscriptsRelations = relations(callTranscripts, ({ one, many }) => ({

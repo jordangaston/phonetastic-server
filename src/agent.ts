@@ -21,6 +21,9 @@ import { createTodoTool } from './agent-tools/todo-tool.js';
 import { createLoadSkillTool } from './agent-tools/load-skill-tool.js';
 import { VoiceRepository } from './repositories/voice-repository.js';
 import { BotSettingsRepository } from './repositories/bot-settings-repository.js';
+import { CompanyRepository } from './repositories/company-repository.js';
+import { BotRepository } from './repositories/bot-repository.js';
+import { EndUserRepository } from './repositories/end-user-repository.js';
 import { NoiseCancellation } from '@livekit/noise-cancellation-node';
 
 import { Eta } from 'eta';
@@ -35,40 +38,23 @@ export type SessionData = {
 
 const eta = new Eta();
 
-// company:
-//   id: {{ company.id }}
-//   name: {{ company.name || 'unknown' }}
-//   businessType: {{ company.businessType || 'unknown' }}
-//   email: {{ company.email || 'unknown' }}
-//   website: {{ company.website || 'unknown' }}
-// caller:
-//   id: {{ caller.id }}
-//   firstName: {{ caller.firstName || 'unknown' }}
-//   lastName: {{ caller.lastName || 'unknown' }}
-//   timezone: {{ caller.timezone || 'unknown' }}
-// assistant:
-//    id: {{ assistant.id }}
-//    name: {{ assistant.name || 'unknown' }}
-
-// <skills>
-// Use the loadSkill tool to load a skill's instructions before activating it. Follow those instructions precisely.  Here are the skills you have available to you:
-
-// ## Company Infor
-// Use when the customer asks questions about the business — services, pricing, hours, policies, or anything you'd find in a company FAQ.
-
-// ## Book Appointment
-// Use when the customer needs to schedule an appointment or check available times.
-// </skills>
-
-
 const systemPrompt = `
 ---
 company:
-  id: 1
-  name: Jester King
-  businessType: Brewery
-dow: thursday
-time: {{ time || 'unknown' }}
+  id: <%= it.company.id %>
+  name: <%= it.company.name || 'unknown' %>
+  businessType: <%= it.company.businessType || 'unknown' %>
+  email: <%= it.company.email || 'unknown' %>
+  website: <%= it.company.website || 'unknown' %>
+caller:
+  id: <%= it.caller.id %>
+  firstName: <%= it.caller.firstName || 'unknown' %>
+  lastName: <%= it.caller.lastName || 'unknown' %>
+assistant:
+  id: <%= it.assistant.id %>
+  name: <%= it.assistant.name || 'unknown' %>
+dow: <%= it.dow %>
+time: <%= it.time || 'unknown' %>
 ---
 
 <principles>
@@ -152,6 +138,20 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function buildPromptData(data?: {
+  company?: { id: number; name: string; businessType: string | null; email: string | null; website: string | null };
+  bot?: { id: number; name: string };
+  endUser?: { id: number; firstName: string | null; lastName: string | null };
+}) {
+  return {
+    company: data?.company ?? { id: 'unknown', name: 'unknown', businessType: 'unknown', email: 'unknown', website: 'unknown' },
+    caller: data?.endUser ?? { id: 'unknown', firstName: 'unknown', lastName: 'unknown' },
+    assistant: data?.bot ?? { id: 'unknown', name: 'unknown' },
+    dow: new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(),
+    time: new Date().toISOString(),
+  };
+}
+
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
     log().info('Prewarm started');
@@ -167,6 +167,9 @@ export default defineAgent({
     const livekitService = container.resolve<LiveKitService>('LiveKitService');
     const voiceRepository = container.resolve<VoiceRepository>('VoiceRepository');
     const botSettingsRepo = container.resolve<BotSettingsRepository>('BotSettingsRepository');
+    const companyRepo = container.resolve<CompanyRepository>('CompanyRepository');
+    const botRepo = container.resolve<BotRepository>('BotRepository');
+    const endUserRepo = container.resolve<EndUserRepository>('EndUserRepository');
     const backgroundAudio = new voice.BackgroundAudioPlayer({
       ambientSound: voice.BuiltinAudioClip.OFFICE_AMBIENCE,
       thinkingSound: voice.BuiltinAudioClip.KEYBOARD_TYPING2
@@ -257,7 +260,7 @@ export default defineAgent({
     };
 
     const agent = new voice.Agent({
-      instructions: await eta.renderStringAsync(systemPrompt, { time: new Date().toISOString() }),
+      instructions: await eta.renderStringAsync(systemPrompt, buildPromptData()),
       tools,
     });
 
@@ -268,29 +271,54 @@ export default defineAgent({
     log().info({ roomName }, 'Call connected');
 
     const caller = await ctx.waitForParticipant();
-    let callContext: { userId: number; companyId: number; botId: number } | undefined;
+    let call: Awaited<ReturnType<CallService['initializeInboundCall']>>;
     try {
       if (isTestCall(roomName)) {
         log().info({ caller }, 'Caller found');
-        await callService.onParticipantJoined(roomName);
+        call = await callService.onParticipantJoined(roomName);
       } else {
         log().info({ caller }, 'Caller found');
         const from = caller.attributes['sip.phoneNumber'];
         const to = caller.attributes['sip.trunkPhoneNumber'];
         log().info({ from, to }, 'Initializing inbound call');
-        callContext = await callService.initializeInboundCall(roomName, from, to);
+        call = await callService.initializeInboundCall(roomName, from, to);
         log().info('Inbound call initialized');
-        session.userData.companyId = callContext.companyId;
-        session.userData.userId = callContext.userId;
-        session.userData.botId = callContext.botId;
       }
 
-      const botVoice = await voiceRepository.findByBotId(callContext?.botId);
+      if (!call) throw new Error('Call not found after initialization');
+
+      const botParticipant = call.participants.find(p => p.type === 'bot');
+      const agentParticipant = call.participants.find(p => p.type === 'agent');
+      const endUserParticipant = call.participants.find(p => p.type === 'end_user');
+
+      const [company, bot, endUser] = await Promise.all([
+        companyRepo.findById(call.companyId),
+        botParticipant?.botId ? botRepo.findById(botParticipant.botId) : undefined,
+        endUserParticipant?.endUserId ? endUserRepo.findById(endUserParticipant.endUserId) : undefined,
+      ]);
+
+      const userId = bot?.userId ?? agentParticipant?.userId ?? undefined;
+      session.userData.companyId = call.companyId;
+      session.userData.userId = userId;
+      session.userData.botId = botParticipant?.botId ?? undefined;
+
+      const botVoice = await voiceRepository.findByBotId(botParticipant?.botId);
       if (botVoice) {
         log().info({ name: botVoice.name, externalId: botVoice.externalId, id: botVoice.id }, 'Using configured voice');
         session.tts = inference.TTS.fromModelString(`cartesia/sonic:${botVoice.externalId}`);
       }
 
+      const instructions = await eta.renderStringAsync(systemPrompt, buildPromptData({ company, bot, endUser }));
+      session.updateAgent(new voice.Agent({
+        instructions,
+        tools: {
+          ...agent.toolCtx,
+          companyInfo: createCompanyInfoTool(call.companyId),
+          getAvailability: createGetAvailabilityTool(userId!),
+          bookAppointment: createBookAppointmentTool(userId!),
+          loadSkill: createLoadSkillTool(botParticipant?.botId!),
+        },
+      }));
     } catch (err: any) {
       log().error({ err }, 'Failed to initialize inbound call');
       await session.generateReply({
@@ -303,7 +331,7 @@ export default defineAgent({
       return;
     }
 
-    const botVoice = await voiceRepository.findByBotId(callContext?.botId);
+    const botVoice = await voiceRepository.findByBotId(session.userData.botId);
     if (botVoice) {
       log().info({ name: botVoice.name, externalId: botVoice.externalId, id: botVoice.id }, 'Using configured voice');
       session.tts = new inference.TTS({
@@ -316,21 +344,8 @@ export default defineAgent({
       });
     }
 
-    if (callContext) {
-      session.updateAgent(new voice.Agent({
-        instructions: agent.instructions,
-        tools: {
-          ...agent.toolCtx,
-          companyInfo: createCompanyInfoTool(callContext.companyId),
-          getAvailability: createGetAvailabilityTool(callContext.userId),
-          bookAppointment: createBookAppointmentTool(callContext.userId),
-          loadSkill: createLoadSkillTool(callContext.botId),
-        },
-      }));
-    }
-
     log().info('Generating initial reply');
-    const botSettings = await botSettingsRepo.findByUserId(callContext!.userId);
+    const botSettings = await botSettingsRepo.findByUserId(session.userData.userId!);
     if (botSettings && botSettings.callGreetingMessage) {
       await session.generateReply({
         instructions: `Make the following message sound natural and conversational: "${botSettings.callGreetingMessage}"`,
