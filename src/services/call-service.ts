@@ -154,10 +154,10 @@ export class CallService {
    * @param externalCallId - The LiveKit room name for this call.
    * @param fromE164 - The caller's E.164 phone number.
    * @param toE164 - The destination E.164 phone number (the purchased number).
-   * @returns The resolved user id, company id, and bot id for use by the agent.
+   * @returns The call with its participants populated.
    * @throws {BadRequestError} If the destination number, company user, or bot cannot be found.
    */
-  async initializeInboundCall(externalCallId: string, fromE164: string, toE164: string): Promise<{ userId: number; companyId: number; botId: number }> {
+  async initializeInboundCall(externalCallId: string, fromE164: string, toE164: string) {
     const toPhoneNumber = await this.phoneNumberRepo.findByE164(toE164);
     if (!toPhoneNumber) throw new BadRequestError('Destination phone number not found');
 
@@ -168,15 +168,8 @@ export class CallService {
     if (!bot) throw new BadRequestError('No bot found for user');
 
     await this.db.transaction(async (tx) => {
-      let fromPhoneNumber = await this.phoneNumberRepo.findByE164(fromE164, tx);
-      if (!fromPhoneNumber) {
-        fromPhoneNumber = await this.phoneNumberRepo.create({ phoneNumberE164: fromE164 }, tx);
-      }
-
-      let endUser = await this.endUserRepo.findByPhoneNumberId(fromPhoneNumber.id, tx);
-      if (!endUser) {
-        endUser = await this.endUserRepo.create({ phoneNumberId: fromPhoneNumber.id, companyId: user.companyId! }, tx);
-      }
+      const fromPhoneNumber = await this.findOrCreatePhoneNumber(fromE164, tx);
+      const endUser = await this.findOrCreateEndUser(fromPhoneNumber.id, user.companyId!, tx);
 
       const call = await this.callRepo.create({
         externalCallId,
@@ -190,18 +183,31 @@ export class CallService {
       await this.participantRepo.create({ callId: call.id, type: 'end_user', state: 'connected', endUserId: endUser.id, companyId: user.companyId! }, tx);
     });
 
-    return { userId: user.id, companyId: user.companyId!, botId: bot.id };
+    return this.callRepo.findByExternalCallIdWithParticipants(externalCallId);
+  }
+
+  private async findOrCreatePhoneNumber(e164: string, tx: Transaction) {
+    const existing = await this.phoneNumberRepo.findByE164(e164, tx);
+    if (existing) return existing;
+    return this.phoneNumberRepo.create({ phoneNumberE164: e164 }, tx);
+  }
+
+  private async findOrCreateEndUser(phoneNumberId: number, companyId: number, tx: Transaction) {
+    const existing = await this.endUserRepo.findByPhoneNumberId(phoneNumberId, tx);
+    if (existing) return existing;
+    return this.endUserRepo.create({ phoneNumberId, companyId }, tx);
   }
 
   /**
-   * Updates the call and its end user participant to `connected` after the user joins the LiveKit room.
+   * Updates the call and its agent participant to `connected` after the user joins the LiveKit room.
    * Used for test mode calls where the user connects after the agent is dispatched.
    *
-   * @precondition A call with the given `externalCallId` must exist with an `end_user` participant.
+   * @precondition A call with the given `externalCallId` must exist with an `agent` participant.
    * @param externalCallId - The LiveKit room name (externalCallId) of the call.
-   * @throws {BadRequestError} If the call or end user participant cannot be found.
+   * @returns The call with its participants populated.
+   * @throws {BadRequestError} If the call or agent participant cannot be found.
    */
-  async onParticipantJoined(externalCallId: string): Promise<void> {
+  async onParticipantJoined(externalCallId: string) {
     const call = await this.callRepo.findByExternalCallId(externalCallId);
     if (!call) throw new BadRequestError('Call not found');
 
@@ -213,6 +219,8 @@ export class CallService {
       await this.participantRepo.updateState(participant.id, 'connected', tx);
       await this.transcriptRepo.create({ callId: call.id }, tx);
     });
+
+    return this.callRepo.findByExternalCallIdWithParticipants(externalCallId);
   }
 
   /**
