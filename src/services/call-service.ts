@@ -13,6 +13,11 @@ import type { LiveKitService } from './livekit-service.js';
 import { BadRequestError } from '../lib/errors.js';
 import { DBOSClientFactory } from './dbos-client-factory.js';
 
+/**
+ * Context resolved when a call is initialized, providing the IDs
+ * the agent needs to load company-specific tools.
+ */
+export type CallContext = { userId: number; companyId: number; botId: number };
 
 const SUMMARIZE_CALL_QUEUE = 'summarize-call';
 
@@ -157,7 +162,7 @@ export class CallService {
    * @returns The resolved user id, company id, and bot id for use by the agent.
    * @throws {BadRequestError} If the destination number, company user, or bot cannot be found.
    */
-  async initializeInboundCall(externalCallId: string, fromE164: string, toE164: string): Promise<{ userId: number; companyId: number; botId: number }> {
+  async initializeInboundCall(externalCallId: string, fromE164: string, toE164: string): Promise<CallContext> {
     const toPhoneNumber = await this.phoneNumberRepo.findByE164(toE164);
     if (!toPhoneNumber) throw new BadRequestError('Destination phone number not found');
 
@@ -194,25 +199,32 @@ export class CallService {
   }
 
   /**
-   * Updates the call and its end user participant to `connected` after the user joins the LiveKit room.
+   * Updates the call and its agent participant to `connected` after the user joins the LiveKit room.
    * Used for test mode calls where the user connects after the agent is dispatched.
    *
-   * @precondition A call with the given `externalCallId` must exist with an `end_user` participant.
+   * @precondition A call with the given `externalCallId` must exist with agent and bot participants.
    * @param externalCallId - The LiveKit room name (externalCallId) of the call.
-   * @throws {BadRequestError} If the call or end user participant cannot be found.
+   * @returns The resolved user id, company id, and bot id for use by the agent.
+   * @throws {BadRequestError} If the call, agent participant, or bot participant cannot be found.
    */
-  async onParticipantJoined(externalCallId: string): Promise<void> {
+  async onParticipantJoined(externalCallId: string): Promise<CallContext> {
     const call = await this.callRepo.findByExternalCallId(externalCallId);
     if (!call) throw new BadRequestError('Call not found');
 
-    const participant = await this.participantRepo.findByCallIdAndType(call.id, 'agent');
-    if (!participant) throw new BadRequestError('Agent participant not found');
+    const [agentParticipant, botParticipant] = await Promise.all([
+      this.participantRepo.findByCallIdAndType(call.id, 'agent'),
+      this.participantRepo.findByCallIdAndType(call.id, 'bot'),
+    ]);
+    if (!agentParticipant) throw new BadRequestError('Agent participant not found');
+    if (!botParticipant) throw new BadRequestError('Bot participant not found');
 
     await this.db.transaction(async (tx) => {
       await this.callRepo.updateState(call.id, 'connected', tx);
-      await this.participantRepo.updateState(participant.id, 'connected', tx);
+      await this.participantRepo.updateState(agentParticipant.id, 'connected', tx);
       await this.transcriptRepo.create({ callId: call.id }, tx);
     });
+
+    return { userId: agentParticipant.userId!, companyId: call.companyId, botId: botParticipant.botId! };
   }
 
   /**

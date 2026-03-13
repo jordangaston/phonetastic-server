@@ -269,19 +269,27 @@ describe('CallService', () => {
     });
 
     it('throws BadRequestError when agent participant is not found', async () => {
-      callRepo.findByExternalCallId.mockResolvedValue({ id: 99 });
-      participantRepo.findByCallIdAndType.mockResolvedValue(null);
+      callRepo.findByExternalCallId.mockResolvedValue({ id: 99, companyId: 5 });
+      participantRepo.findByCallIdAndType.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 30, botId: 7 });
       await expect(service.onParticipantJoined('test-abc')).rejects.toThrow(BadRequestError);
     });
 
-    it('updates call state and agent participant state to connected in a transaction', async () => {
-      callRepo.findByExternalCallId.mockResolvedValue({ id: 99 });
-      participantRepo.findByCallIdAndType.mockResolvedValue({ id: 20 });
+    it('throws BadRequestError when bot participant is not found', async () => {
+      callRepo.findByExternalCallId.mockResolvedValue({ id: 99, companyId: 5 });
+      participantRepo.findByCallIdAndType.mockResolvedValueOnce({ id: 20, userId: 3 }).mockResolvedValueOnce(null);
+      await expect(service.onParticipantJoined('test-abc')).rejects.toThrow(BadRequestError);
+    });
 
-      await service.onParticipantJoined('test-abc');
+    it('updates call state and agent participant state to connected and returns call context', async () => {
+      callRepo.findByExternalCallId.mockResolvedValue({ id: 99, companyId: 5 });
+      participantRepo.findByCallIdAndType.mockResolvedValueOnce({ id: 20, userId: 3 }).mockResolvedValueOnce({ id: 30, botId: 7 });
 
+      const result = await service.onParticipantJoined('test-abc');
+
+      expect(result).toEqual({ userId: 3, companyId: 5, botId: 7 });
       expect(db.transaction).toHaveBeenCalledOnce();
       expect(participantRepo.findByCallIdAndType).toHaveBeenCalledWith(99, 'agent');
+      expect(participantRepo.findByCallIdAndType).toHaveBeenCalledWith(99, 'bot');
       expect(callRepo.updateState).toHaveBeenCalledWith(99, 'connected', expect.anything());
       expect(participantRepo.updateState).toHaveBeenCalledWith(20, 'connected', expect.anything());
       expect(transcriptRepo.create).toHaveBeenCalledWith({ callId: 99 }, expect.anything());

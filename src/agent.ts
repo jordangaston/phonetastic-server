@@ -11,7 +11,7 @@ import {
 import * as silero from '@livekit/agents-plugin-silero';
 import 'dotenv/config';
 import { setupContainer, container } from './config/container.js';
-import type { CallService } from './services/call-service.js';
+import type { CallService, CallContext } from './services/call-service.js';
 import type { LiveKitService } from './services/livekit-service.js';
 import { RoomEvent, DisconnectReason } from '@livekit/rtc-node';
 import { createEndCallTool } from './agent-tools/end-call-tool.js';
@@ -268,11 +268,14 @@ export default defineAgent({
     log().info({ roomName }, 'Call connected');
 
     const caller = await ctx.waitForParticipant();
-    let callContext: { userId: number; companyId: number; botId: number } | undefined;
+    let callContext: CallContext | undefined;
     try {
       if (isTestCall(roomName)) {
         log().info({ caller }, 'Caller found');
-        await callService.onParticipantJoined(roomName);
+        callContext = await callService.onParticipantJoined(roomName);
+        session.userData.companyId = callContext.companyId;
+        session.userData.userId = callContext.userId;
+        session.userData.botId = callContext.botId;
       } else {
         log().info({ caller }, 'Caller found');
         const from = caller.attributes['sip.phoneNumber'];
