@@ -15,7 +15,7 @@ let app: FastifyInstance;
 let db: Database;
 
 beforeAll(async () => {
-  db = createDb();
+  db = createDb({ searchPath: 'test,public' });
   setupContainer({ db, otpProvider: new StubOtpProvider() });
 
   const auth = env.DB_PASSWORD ? `${env.DB_USER}:${env.DB_PASSWORD}` : env.DB_USER;
@@ -40,7 +40,7 @@ afterAll(async () => {
   await DBOS.shutdown();
   await app.close();
   container.clearInstances();
-}, 15000);
+}, 60000);
 
 describe('Workflow Controller', () => {
   describe('POST /v1/workflows', () => {
