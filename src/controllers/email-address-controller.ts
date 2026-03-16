@@ -7,7 +7,7 @@ import { authGuard } from '../middleware/auth.js';
  * Registers email address routes on the Fastify instance.
  *
  * @precondition The DI container must have EmailAddressService registered.
- * @postcondition Routes POST /v1/email-addresses and GET /v1/email-addresses are available.
+ * @postcondition Routes POST /v1/email_addresses and GET /v1/email_addresses are available.
  * @param app - The Fastify application instance.
  */
 export async function emailAddressController(app: FastifyInstance): Promise<void> {
@@ -20,7 +20,7 @@ export async function emailAddressController(app: FastifyInstance): Promise<void
    * @throws 400 if the user has no company.
    * @throws 409 if the company already has an email address.
    */
-  app.post('/v1/email-addresses', { preHandler: [authGuard] }, async (request, reply) => {
+  app.post('/v1/email_addresses', { preHandler: [authGuard] }, async (request, reply) => {
     const emailAddress = await emailAddressService.createEmailAddress(request.userId);
     return reply.status(201).send({ email_address: formatEmailAddress(emailAddress) });
   });
@@ -31,7 +31,7 @@ export async function emailAddressController(app: FastifyInstance): Promise<void
    * @returns An object with an email_addresses array.
    * @throws 400 if the user has no company.
    */
-  app.get('/v1/email-addresses', { preHandler: [authGuard] }, async (request, reply) => {
+  app.get('/v1/email_addresses', { preHandler: [authGuard] }, async (request, reply) => {
     const addresses = await emailAddressService.listEmailAddresses(request.userId);
     return reply.send({ email_addresses: addresses.map(formatEmailAddress) });
   });

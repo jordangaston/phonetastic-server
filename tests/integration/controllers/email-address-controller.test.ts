@@ -22,11 +22,11 @@ describe('EmailAddress Controller', () => {
     await closeTestApp();
   });
 
-  describe('POST /v1/email-addresses', () => {
+  describe('POST /v1/email_addresses', () => {
     it('returns 401 without auth', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
       });
       expect(response.statusCode).toBe(401);
     });
@@ -35,7 +35,7 @@ describe('EmailAddress Controller', () => {
       const { accessToken } = await createTestUser(app);
       const response = await app.inject({
         method: 'POST',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
       expect(response.statusCode).toBe(400);
@@ -48,7 +48,7 @@ describe('EmailAddress Controller', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
 
@@ -65,13 +65,13 @@ describe('EmailAddress Controller', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
 
       const response = await app.inject({
         method: 'POST',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
 
@@ -80,11 +80,11 @@ describe('EmailAddress Controller', () => {
     });
   });
 
-  describe('GET /v1/email-addresses', () => {
+  describe('GET /v1/email_addresses', () => {
     it('returns 401 without auth', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
       });
       expect(response.statusCode).toBe(401);
     });
@@ -96,7 +96,7 @@ describe('EmailAddress Controller', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
 
@@ -111,13 +111,13 @@ describe('EmailAddress Controller', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/v1/email-addresses',
+        url: '/v1/email_addresses',
         headers: { authorization: `Bearer ${accessToken}` },
       });
 
