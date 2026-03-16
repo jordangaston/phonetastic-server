@@ -36,15 +36,9 @@ function EmailAgentTurn(
 
     {{ ctx.output_format }}
 
-    {{ _.role("user") }}
     {% if chat_summary %}
     Conversation summary: {{ chat_summary }}
-
     {% endif %}
-    Conversation:
-    {% for msg in conversation %}
-    {% if msg.direction == "inbound" %}Customer{% else %}Support{% endif %}: {{ msg.text }}
-    {% endfor %}
 
     {% if attachment_summaries | length > 0 %}
     Attachments:
@@ -53,11 +47,18 @@ function EmailAgentTurn(
     {% endfor %}
     {% endif %}
 
+    {% for msg in conversation %}
+    {{ _.role("user" if msg.direction == "inbound" else "assistant") }}
+    {{ msg.text }}
+    {% endfor %}
+
     {% if tool_results %}
+    {{ _.role("user") }}
     Previous tool results:
     {{ tool_results }}
     {% endif %}
 
+    {{ _.role("user") }}
     Please respond to the customer's latest message.
   "#
 }
