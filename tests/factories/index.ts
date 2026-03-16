@@ -6,6 +6,11 @@ import { skills } from '../../src/db/schema/skills.js';
 import { phoneNumbers } from '../../src/db/schema/phone-numbers.js';
 import { calls } from '../../src/db/schema/calls.js';
 import { callTranscripts } from '../../src/db/schema/call-transcripts.js';
+import { emailAddresses } from '../../src/db/schema/email-addresses.js';
+import { chats } from '../../src/db/schema/chats.js';
+import { emails } from '../../src/db/schema/emails.js';
+import { attachments } from '../../src/db/schema/attachments.js';
+import { endUsers } from '../../src/db/schema/end-users.js';
 
 type VoiceRow = typeof voices.$inferSelect;
 type CompanyRow = typeof companies.$inferSelect;
@@ -13,6 +18,11 @@ type SkillRow = typeof skills.$inferSelect;
 type PhoneNumberRow = typeof phoneNumbers.$inferSelect;
 type CallRow = typeof calls.$inferSelect;
 type CallTranscriptRow = typeof callTranscripts.$inferSelect;
+type EmailAddressRow = typeof emailAddresses.$inferSelect;
+type ChatRow = typeof chats.$inferSelect;
+type EmailRow = typeof emails.$inferSelect;
+type AttachmentRow = typeof attachments.$inferSelect;
+type EndUserRow = typeof endUsers.$inferSelect;
 
 export const voiceFactory = Factory.define<VoiceRow>(({ sequence }) => ({
   id: sequence,
@@ -109,6 +119,120 @@ export const callTranscriptFactory = Factory.define<CallTranscriptRow>(({ sequen
 })).onCreate(async (transcript) => {
   const [row] = await getTestDb().insert(callTranscripts).values({
     callId: transcript.callId,
+  }).returning();
+  return row;
+});
+
+export const endUserFactory = Factory.define<EndUserRow>(({ sequence }) => ({
+  id: sequence,
+  phoneNumberId: null,
+  companyId: 0,
+  firstName: null,
+  lastName: null,
+  email: null,
+})).onCreate(async (endUser) => {
+  const [row] = await getTestDb().insert(endUsers).values({
+    phoneNumberId: endUser.phoneNumberId ?? undefined,
+    companyId: endUser.companyId,
+    email: endUser.email ?? undefined,
+  }).returning();
+  return row;
+});
+
+export const emailAddressFactory = Factory.define<EmailAddressRow>(({ sequence }) => ({
+  id: sequence,
+  companyId: 0,
+  address: `company-${sequence}@mail.phonetastic.ai`,
+  createdAt: new Date(),
+})).onCreate(async (emailAddress) => {
+  const [row] = await getTestDb().insert(emailAddresses).values({
+    companyId: emailAddress.companyId,
+    address: emailAddress.address,
+  }).returning();
+  return row;
+});
+
+export const chatFactory = Factory.define<ChatRow>(({ sequence }) => ({
+  id: sequence,
+  companyId: 0,
+  endUserId: 0,
+  channel: 'email',
+  status: 'open',
+  botEnabled: true,
+  subject: null,
+  summary: null,
+  emailAddressId: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+})).onCreate(async (chat) => {
+  const [row] = await getTestDb().insert(chats).values({
+    companyId: chat.companyId,
+    endUserId: chat.endUserId,
+    channel: chat.channel,
+    status: chat.status,
+    botEnabled: chat.botEnabled,
+    subject: chat.subject ?? undefined,
+    emailAddressId: chat.emailAddressId ?? undefined,
+  }).returning();
+  return row;
+});
+
+export const emailFactory = Factory.define<EmailRow>(({ sequence }) => ({
+  id: sequence,
+  chatId: 0,
+  direction: 'inbound',
+  endUserId: null,
+  botId: null,
+  userId: null,
+  subject: null,
+  bodyText: null,
+  bodyHtml: null,
+  externalEmailId: null,
+  messageId: null,
+  inReplyTo: null,
+  referenceIds: null,
+  status: 'received',
+  createdAt: new Date(),
+})).onCreate(async (email) => {
+  const [row] = await getTestDb().insert(emails).values({
+    chatId: email.chatId,
+    direction: email.direction,
+    endUserId: email.endUserId ?? undefined,
+    botId: email.botId ?? undefined,
+    userId: email.userId ?? undefined,
+    subject: email.subject ?? undefined,
+    bodyText: email.bodyText ?? undefined,
+    bodyHtml: email.bodyHtml ?? undefined,
+    externalEmailId: email.externalEmailId ?? undefined,
+    messageId: email.messageId ?? undefined,
+    inReplyTo: email.inReplyTo ?? undefined,
+    referenceIds: email.referenceIds ?? undefined,
+    status: email.status,
+  }).returning();
+  return row;
+});
+
+export const attachmentFactory = Factory.define<AttachmentRow>(({ sequence }) => ({
+  id: sequence,
+  emailId: 0,
+  externalAttachmentId: null,
+  filename: `file-${sequence}.pdf`,
+  contentType: 'application/pdf',
+  sizeBytes: null,
+  storageKey: null,
+  status: 'pending',
+  summary: null,
+  createdAt: new Date(),
+})).onCreate(async (attachment) => {
+  const [row] = await getTestDb().insert(attachments).values({
+    emailId: attachment.emailId,
+    externalAttachmentId: attachment.externalAttachmentId ?? undefined,
+    filename: attachment.filename,
+    contentType: attachment.contentType,
+    sizeBytes: attachment.sizeBytes ?? undefined,
+    storageKey: attachment.storageKey ?? undefined,
+    status: attachment.status,
+    summary: attachment.summary ?? undefined,
   }).returning();
   return row;
 });

@@ -19,4 +19,8 @@ export * from './operation-hours';
 export * from './call-transcripts';
 export * from './call-transcript-entries';
 export * from './sms-messages';
+export * from './email-addresses';
+export * from './chats';
+export * from './emails';
+export * from './attachments';
 export * from './relations';

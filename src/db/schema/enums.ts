@@ -60,3 +60,18 @@ export const smsStateEnum = pgEnum('sms_state', [
   'received',
 ]);
 export type SmsState = (typeof smsStateEnum.enumValues)[number];
+
+export const chatChannelEnum = pgEnum('chat_channel', ['email']);
+export type ChatChannel = (typeof chatChannelEnum.enumValues)[number];
+
+export const chatStatusEnum = pgEnum('chat_status', ['open', 'closed']);
+export type ChatStatus = (typeof chatStatusEnum.enumValues)[number];
+
+export const emailDirectionEnum = pgEnum('email_direction', ['inbound', 'outbound']);
+export type EmailDirection = (typeof emailDirectionEnum.enumValues)[number];
+
+export const emailStatusEnum = pgEnum('email_status', ['received', 'pending', 'sent', 'failed']);
+export type EmailStatus = (typeof emailStatusEnum.enumValues)[number];
+
+export const attachmentStatusEnum = pgEnum('attachment_status', ['pending', 'stored', 'failed']);
+export type AttachmentStatus = (typeof attachmentStatusEnum.enumValues)[number];

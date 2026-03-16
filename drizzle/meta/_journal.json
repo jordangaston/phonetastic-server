@@ -141,6 +141,13 @@
       "when": 1773462851704,
       "tag": "0019_quick_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1773640135775,
+      "tag": "0020_stormy_steve_rogers",
+      "breakpoints": true
     }
   ]
 }

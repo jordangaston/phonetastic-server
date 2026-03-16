@@ -13,6 +13,11 @@ import { users } from './users';
 import { bots } from './bots';
 import { skills } from './skills';
 import { botSkills } from './bot-skills';
+import { endUsers } from './end-users';
+import { emailAddresses } from './email-addresses';
+import { chats } from './chats';
+import { emails } from './emails';
+import { attachments } from './attachments';
 
 export const callsRelations = relations(calls, ({ one, many }) => ({
   transcript: one(callTranscripts, { fields: [calls.id], references: [callTranscripts.callId] }),
@@ -38,6 +43,8 @@ export const companiesRelations = relations(companies, ({ many }) => ({
   phoneNumbers: many(phoneNumbers),
   faqs: many(faqs),
   offerings: many(offerings),
+  emailAddresses: many(emailAddresses),
+  chats: many(chats),
 }));
 
 export const addressesRelations = relations(addresses, ({ one }) => ({
@@ -76,4 +83,24 @@ export const skillsRelations = relations(skills, ({ many }) => ({
 export const botSkillsRelations = relations(botSkills, ({ one }) => ({
   bot: one(bots, { fields: [botSkills.botId], references: [bots.id] }),
   skill: one(skills, { fields: [botSkills.skillId], references: [skills.id] }),
+}));
+
+export const emailAddressesRelations = relations(emailAddresses, ({ one }) => ({
+  company: one(companies, { fields: [emailAddresses.companyId], references: [companies.id] }),
+}));
+
+export const chatsRelations = relations(chats, ({ one, many }) => ({
+  company: one(companies, { fields: [chats.companyId], references: [companies.id] }),
+  endUser: one(endUsers, { fields: [chats.endUserId], references: [endUsers.id] }),
+  emailAddress: one(emailAddresses, { fields: [chats.emailAddressId], references: [emailAddresses.id] }),
+  emails: many(emails),
+}));
+
+export const emailsRelations = relations(emails, ({ one, many }) => ({
+  chat: one(chats, { fields: [emails.chatId], references: [chats.id] }),
+  attachments: many(attachments),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  email: one(emails, { fields: [attachments.emailId], references: [emails.id] }),
 }));
