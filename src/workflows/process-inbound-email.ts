@@ -22,19 +22,10 @@ const MAX_SUMMARIZE_SIZE = 10 * 1024 * 1024;
 const MAX_AGENT_TURNS = 5;
 const PRECANNED_ERROR = 'Thank you for your email. We have received your message and a team member will follow up shortly.';
 
-/** Serializable message type for the agent loop. */
-interface AgentMessage {
-  role: string;
-  content?: string;
-  tool_calls?: any[];
-  tool_call_id?: string;
-}
-
-/** Return type for a single agent turn step. */
+/** Return type for a single BAML agent turn step. */
 interface AgentTurnResult {
-  messages: AgentMessage[];
   replyText: string | null;
-  done: boolean;
+  toolResults: string | null;
 }
 
 /**
@@ -260,8 +251,8 @@ export class ProcessInboundEmail {
   }
 
   /**
-   * Child workflow: runs the agent loop. Each LLM turn is a separate step
-   * so DBOS can recover from the last completed turn on failure.
+   * Child workflow: runs the agent loop via BAML EmailAgentTurn.
+   * Each LLM turn is a separate step so DBOS can recover per turn.
    *
    * @param context - The bot context.
    * @returns The reply text, or a precanned error message.
@@ -274,122 +265,51 @@ export class ProcessInboundEmail {
     attachmentSummaries: { filename: string; summary: string }[];
     chatSummary: string | null;
   }): Promise<string> {
-    const messages = ProcessInboundEmail.buildInitialMessages(context);
+    let toolResults: string | null = null;
 
     for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
-      const result = await ProcessInboundEmail.agentTurn(context.companyId, messages);
+      const result = await ProcessInboundEmail.agentTurn(context, toolResults);
       if (result.replyText) return result.replyText;
-      if (result.done) break;
-      messages.length = 0;
-      messages.push(...result.messages);
+      if (!result.toolResults) break;
+      toolResults = result.toolResults;
     }
 
     return PRECANNED_ERROR;
   }
 
   /**
-   * Builds the initial LLM message array from bot context.
+   * Step: executes a single BAML agent turn — calls EmailAgentTurn and
+   * handles the tool result. Returns reply text or tool results for the next turn.
    *
    * @param context - The bot context.
-   * @returns The initial messages array.
+   * @param toolResults - Tool results from the previous turn, or null.
+   * @returns Reply text if the bot replied, or tool results to feed back.
    */
-  static buildInitialMessages(context: {
+  @DBOS.step({ retriesAllowed: true, maxAttempts: 2, intervalSeconds: 2, backoffRate: 2 })
+  static async agentTurn(context: {
+    companyId: number;
     companyName: string;
     conversationHistory: { direction: string; text: string; subject: string | null }[];
     attachmentSummaries: { filename: string; summary: string }[];
     chatSummary: string | null;
-  }): AgentMessage[] {
-    const conversation = context.conversationHistory
-      .map((e) => `${e.direction === 'inbound' ? 'Customer' : 'Support'}: ${e.text}`)
-      .join('\n');
-
-    const attachmentContext = context.attachmentSummaries.length > 0
-      ? '\n\nAttachments:\n' + context.attachmentSummaries.map((a) => `- ${a.filename}: ${a.summary}`).join('\n')
-      : '';
-
-    const summaryContext = context.chatSummary ? `\n\nConversation summary: ${context.chatSummary}` : '';
-
-    const systemPrompt = [
-      `You are an AI email assistant for ${context.companyName}.`,
-      'You help customers by answering their questions using the company knowledge base.',
-      'You MUST use the reply tool to send your response. Do NOT respond with plain text.',
-      'If you need information about the company, use the companyInfo tool first.',
-      'Be helpful, professional, and concise.',
-    ].join(' ');
-
-    return [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `${summaryContext}\n\nConversation:\n${conversation}${attachmentContext}\n\nPlease respond to the customer's latest message using the reply tool.` },
-    ];
-  }
-
-  /**
-   * Step: executes a single LLM turn — one API call plus tool call processing.
-   * Each turn is checkpointed so recovery resumes from the last completed turn.
-   *
-   * @param companyId - The company id for FAQ search.
-   * @param messages - The current message history.
-   * @returns Updated messages, optional reply text, and whether the loop is done.
-   */
-  @DBOS.step({ retriesAllowed: true, maxAttempts: 2, intervalSeconds: 2, backoffRate: 2 })
-  static async agentTurn(companyId: number, messages: AgentMessage[]): Promise<AgentTurnResult> {
-    const embeddingService = container.resolve<EmbeddingService>('EmbeddingService');
-    const faqRepo = container.resolve<FaqRepository>('FaqRepository');
-
-    const toolDefinitions = [
-      {
-        type: 'function' as const,
-        function: {
-          name: 'companyInfo',
-          description: 'Searches the company knowledge base to answer questions about the business.',
-          parameters: { type: 'object', properties: { query: { type: 'string', description: 'The question to search for.' } }, required: ['query'] },
-        },
-      },
-      {
-        type: 'function' as const,
-        function: {
-          name: 'reply',
-          description: 'Sends the email reply to the customer. You MUST call this tool to respond.',
-          parameters: { type: 'object', properties: { text: { type: 'string', description: 'The reply text to send.' } }, required: ['text'] },
-        },
-      },
-    ];
-
+  }, toolResults: string | null): Promise<AgentTurnResult> {
     try {
-      const { OpenAI } = await import('openai');
-      const openai = new OpenAI();
+      const toolCall = await b.EmailAgentTurn(
+        context.companyName,
+        context.conversationHistory.map((m) => ({ direction: m.direction, text: m.text })),
+        context.attachmentSummaries,
+        context.chatSummary ?? undefined,
+        toolResults ?? undefined,
+      );
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano',
-        messages: messages as any[],
-        tools: toolDefinitions,
-      });
-
-      const choice = response.choices[0];
-      if (!choice.message.tool_calls?.length) {
-        return { messages, replyText: null, done: true };
+      if (toolCall.tool_name === 'reply') {
+        return { replyText: toolCall.text, toolResults: null };
       }
 
-      const updated = [...messages, choice.message as any];
-
-      for (const toolCall of choice.message.tool_calls) {
-        const fn = (toolCall as any).function;
-        const args = JSON.parse(fn.arguments);
-        let result: any;
-
-        if (fn.name === 'companyInfo') {
-          result = await ProcessInboundEmail.executeCompanyInfoTool(companyId, args.query, embeddingService, faqRepo);
-        } else if (fn.name === 'reply') {
-          updated.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: true }) });
-          return { messages: updated, replyText: args.text, done: true };
-        }
-
-        updated.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-      }
-
-      return { messages: updated, replyText: null, done: false };
+      const searchResults = await ProcessInboundEmail.executeCompanyInfoTool(context.companyId, toolCall.query);
+      return { replyText: null, toolResults: JSON.stringify(searchResults) };
     } catch {
-      return { messages, replyText: null, done: true };
+      return { replyText: null, toolResults: null };
     }
   }
 
@@ -398,16 +318,12 @@ export class ProcessInboundEmail {
    *
    * @param companyId - The company id.
    * @param query - The search query.
-   * @param embeddingService - The embedding service.
-   * @param faqRepo - The FAQ repository.
    * @returns The search results or an error indicator.
    */
-  static async executeCompanyInfoTool(
-    companyId: number,
-    query: string,
-    embeddingService: EmbeddingService,
-    faqRepo: FaqRepository,
-  ) {
+  static async executeCompanyInfoTool(companyId: number, query: string) {
+    const embeddingService = container.resolve<EmbeddingService>('EmbeddingService');
+    const faqRepo = container.resolve<FaqRepository>('FaqRepository');
+
     try {
       const [queryEmbedding] = await embeddingService.embed([query]);
       const results = await faqRepo.searchByEmbedding(companyId, queryEmbedding, 3);

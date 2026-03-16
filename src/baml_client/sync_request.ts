@@ -22,7 +22,7 @@ import type { BamlRuntime, BamlCtxManager, Image, Audio, Pdf, Video } from "@bou
 import { toBamlError, HTTPRequest, ClientRegistry } from "@boundaryml/baml"
 import type { Checked, Check } from "./types.js"
 import type * as types from "./types.js"
-import type {CompanyAddress, CompanyInfo, CuratedOffersAndFAQs, ExtractedFaq, ExtractedOffering, ExtractedPrice, OperationHour, PageSummary, RankedPages} from "./types.js"
+import type {AttachmentSummary, CompanyAddress, CompanyInfo, CompanyInfoTool, ConversationMessage, CuratedOffersAndFAQs, ExtractedFaq, ExtractedOffering, ExtractedPrice, OperationHour, PageSummary, RankedPages, ReplyTool} from "./types.js"
 import type TypeBuilder from "./type_builder.js"
 import type * as events from "./events.js"
 
@@ -92,6 +92,39 @@ export class HttpRequest {
         "CurateOffersAndFAQs",
         {
           "faqs": faqs,"offerings": offerings
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  EmailAgentTurn(
+      company_name: string,conversation: types.ConversationMessage[],attachment_summaries: types.AttachmentSummary[],chat_summary?: string | null,tool_results?: string | null,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "EmailAgentTurn",
+        {
+          "company_name": company_name,"conversation": conversation,"attachment_summaries": attachment_summaries,"chat_summary": chat_summary?? null,"tool_results": tool_results?? null
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
@@ -461,6 +494,39 @@ export class HttpStreamRequest {
         "CurateOffersAndFAQs",
         {
           "faqs": faqs,"offerings": offerings
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  EmailAgentTurn(
+      company_name: string,conversation: types.ConversationMessage[],attachment_summaries: types.AttachmentSummary[],chat_summary?: string | null,tool_results?: string | null,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "EmailAgentTurn",
+        {
+          "company_name": company_name,"conversation": conversation,"attachment_summaries": attachment_summaries,"chat_summary": chat_summary?? null,"tool_results": tool_results?? null
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
