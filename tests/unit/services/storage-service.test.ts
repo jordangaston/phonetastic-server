@@ -9,6 +9,11 @@ vi.mock('@aws-sdk/client-s3', () => ({
   GetObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
 }));
 
+const mockGetSignedUrl = vi.fn().mockResolvedValue('https://tigris.test/presigned?token=abc');
+vi.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: (...args: any[]) => mockGetSignedUrl(...args),
+}));
+
 describe('TigrisStorageService', () => {
   let service: TigrisStorageService;
 
@@ -27,6 +32,18 @@ describe('TigrisStorageService', () => {
       expect(cmd.input.Bucket).toBe('my-bucket');
       expect(cmd.input.Key).toBe('path/file.pdf');
       expect(cmd.input.ContentType).toBe('application/pdf');
+    });
+  });
+
+  describe('getPresignedUrl', () => {
+    it('returns a presigned URL with 48h expiration', async () => {
+      const url = await service.getPresignedUrl('path/file.pdf');
+      expect(url).toBe('https://tigris.test/presigned?token=abc');
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ input: { Bucket: 'my-bucket', Key: 'path/file.pdf' } }),
+        { expiresIn: 48 * 60 * 60 },
+      );
     });
   });
 
@@ -61,6 +78,12 @@ describe('StubStorageService', () => {
 
   it('throws on missing object', async () => {
     await expect(stub.getObject('missing')).rejects.toThrow('Object not found');
+  });
+
+  it('returns a stub presigned URL', async () => {
+    const url = await stub.getPresignedUrl('some/key');
+    expect(url).toContain('some/key');
+    expect(url).toContain('presigned');
   });
 
   it('clears all objects', async () => {

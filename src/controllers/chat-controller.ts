@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { container } from 'tsyringe';
 import { ChatService } from '../services/chat-service.js';
+import type { StorageService } from '../services/storage-service.js';
 import { authGuard } from '../middleware/auth.js';
 import type { ChatChannel } from '../db/schema/enums.js';
 
@@ -13,6 +14,7 @@ import type { ChatChannel } from '../db/schema/enums.js';
  */
 export async function chatController(app: FastifyInstance): Promise<void> {
   const chatService = container.resolve<ChatService>('ChatService');
+  const storageService = container.resolve<StorageService>('StorageService');
 
   /**
    * Lists chats for the authenticated user's company.
@@ -71,8 +73,9 @@ export async function chatController(app: FastifyInstance): Promise<void> {
 
     const emailRows = await chatService.listEmails(request.userId, chatId, { pageToken, limit });
     const nextPageToken = emailRows.length > 0 ? emailRows[emailRows.length - 1].id : null;
+    const emails = await Promise.all(emailRows.map((e: any) => formatEmail(e, storageService)));
 
-    return reply.send({ emails: emailRows.map(formatEmail), page_token: nextPageToken });
+    return reply.send({ emails, page_token: nextPageToken });
   });
 
   /**
@@ -103,7 +106,7 @@ export async function chatController(app: FastifyInstance): Promise<void> {
     }));
 
     const email = await chatService.sendOwnerReply(request.userId, chatId, body_text, attachmentData);
-    return reply.status(202).send({ email: formatEmail(email) });
+    return reply.status(202).send({ email: await formatEmail(email, storageService) });
   });
 }
 
@@ -141,11 +144,13 @@ function formatChat(chat: {
 
 /**
  * Formats an email row with attachments into the API response shape.
+ * Generates presigned download URLs for stored attachments.
  *
  * @param email - The email row with nested attachments.
- * @returns The formatted email object.
+ * @param storageService - The storage service for presigned URL generation.
+ * @returns The formatted email object with attachment URLs.
  */
-function formatEmail(email: {
+async function formatEmail(email: {
   id: number;
   chatId: number;
   direction: string;
@@ -157,8 +162,16 @@ function formatEmail(email: {
   bodyText: string | null;
   bodyHtml: string | null;
   createdAt: Date;
-  attachments: { id: number; filename: string; contentType: string; sizeBytes: number | null }[];
-}) {
+  attachments: { id: number; filename: string; contentType: string; sizeBytes: number | null; storageKey: string | null }[];
+}, storageService: StorageService) {
+  const attachments = await Promise.all(email.attachments.map(async (a) => ({
+    id: a.id,
+    filename: a.filename,
+    content_type: a.contentType,
+    size_bytes: a.sizeBytes,
+    url: a.storageKey ? await storageService.getPresignedUrl(a.storageKey) : null,
+  })));
+
   return {
     id: email.id,
     chat_id: email.chatId,
@@ -170,12 +183,7 @@ function formatEmail(email: {
     subject: email.subject,
     body_text: email.bodyText,
     body_html: email.bodyHtml,
-    attachments: email.attachments.map((a) => ({
-      id: a.id,
-      filename: a.filename,
-      content_type: a.contentType,
-      size_bytes: a.sizeBytes,
-    })),
+    attachments,
     created_at: email.createdAt,
   };
 }

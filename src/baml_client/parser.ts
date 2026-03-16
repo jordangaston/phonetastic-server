@@ -191,7 +191,7 @@ export class LlmResponseParser {
     }
   }
   
-  SummarizeAttachment(
+  SummarizeChat(
       llmResponse: string,
       __baml_options__?: { tb?: TypeBuilder, clientRegistry?: ClientRegistry, env?: Record<string, string | undefined> }
   ): string {
@@ -201,7 +201,7 @@ export class LlmResponseParser {
         Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
       );
       return this.runtime.parseLlmResponse(
-        "SummarizeAttachment",
+        "SummarizeChat",
         llmResponse,
         false,
         this.ctxManager.cloneContext(),
@@ -214,7 +214,7 @@ export class LlmResponseParser {
     }
   }
   
-  SummarizeChat(
+  SummarizeImageAttachment(
       llmResponse: string,
       __baml_options__?: { tb?: TypeBuilder, clientRegistry?: ClientRegistry, env?: Record<string, string | undefined> }
   ): string {
@@ -224,7 +224,30 @@ export class LlmResponseParser {
         Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
       );
       return this.runtime.parseLlmResponse(
-        "SummarizeChat",
+        "SummarizeImageAttachment",
+        llmResponse,
+        false,
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __baml_options__?.clientRegistry,
+        __env__,
+      ) as string
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SummarizeTextAttachment(
+      llmResponse: string,
+      __baml_options__?: { tb?: TypeBuilder, clientRegistry?: ClientRegistry, env?: Record<string, string | undefined> }
+  ): string {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+      return this.runtime.parseLlmResponse(
+        "SummarizeTextAttachment",
         llmResponse,
         false,
         this.ctxManager.cloneContext(),
@@ -427,7 +450,7 @@ export class LlmStreamParser {
     }
   }
   
-  SummarizeAttachment(
+  SummarizeChat(
       llmResponse: string,
       __baml_options__?: { tb?: TypeBuilder, clientRegistry?: ClientRegistry, env?: Record<string, string | undefined> }
   ): string {
@@ -437,7 +460,7 @@ export class LlmStreamParser {
         Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
       );
       return this.runtime.parseLlmResponse(
-        "SummarizeAttachment",
+        "SummarizeChat",
         llmResponse,
         true,
         this.ctxManager.cloneContext(),
@@ -450,7 +473,7 @@ export class LlmStreamParser {
     }
   }
   
-  SummarizeChat(
+  SummarizeImageAttachment(
       llmResponse: string,
       __baml_options__?: { tb?: TypeBuilder, clientRegistry?: ClientRegistry, env?: Record<string, string | undefined> }
   ): string {
@@ -460,7 +483,30 @@ export class LlmStreamParser {
         Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
       );
       return this.runtime.parseLlmResponse(
-        "SummarizeChat",
+        "SummarizeImageAttachment",
+        llmResponse,
+        true,
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __baml_options__?.clientRegistry,
+        __env__,
+      ) as string
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SummarizeTextAttachment(
+      llmResponse: string,
+      __baml_options__?: { tb?: TypeBuilder, clientRegistry?: ClientRegistry, env?: Record<string, string | undefined> }
+  ): string {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+      return this.runtime.parseLlmResponse(
+        "SummarizeTextAttachment",
         llmResponse,
         true,
         this.ctxManager.cloneContext(),

@@ -1,5 +1,6 @@
 import { DBOS, WorkflowQueue } from '@dbos-inc/dbos-sdk';
 import { container } from 'tsyringe';
+import { Image } from '@boundaryml/baml';
 import { b } from '../baml_client/index.js';
 import type { AttachmentRepository } from '../repositories/attachment-repository.js';
 import type { ChatRepository } from '../repositories/chat-repository.js';
@@ -58,7 +59,11 @@ export class ProcessInboundEmail {
     const chat = await ProcessInboundEmail.loadChat(chatId);
     if (!chat?.botEnabled) return;
 
-    await ProcessInboundEmail.summarizeAttachments(emailId, companyId);
+    const unsummarized = await ProcessInboundEmail.loadUnsummarizedAttachments(emailId);
+    const emailText = await ProcessInboundEmail.loadEmailText(emailId);
+    for (const att of unsummarized) {
+      await ProcessInboundEmail.summarizeOneAttachment(att.id, att.storageKey, att.contentType, emailText);
+    }
     const context = await ProcessInboundEmail.loadBotContext(chatId, emailId, companyId);
     if (!context) return;
 
@@ -145,34 +150,56 @@ export class ProcessInboundEmail {
   }
 
   /**
-   * Step: summarizes stored attachments that haven't been summarized yet.
+   * Step: loads stored attachments that need summarization.
    *
    * @param emailId - The email id.
-   * @param companyId - The company id.
+   * @returns Array of attachment metadata eligible for summarization.
+   */
+  @DBOS.step()
+  static async loadUnsummarizedAttachments(emailId: number) {
+    const attachmentRepo = container.resolve<AttachmentRepository>('AttachmentRepository');
+    const all = await attachmentRepo.findAllByEmailId(emailId);
+    return all
+      .filter((a) => a.status === 'stored' && !a.summary && a.storageKey)
+      .filter((a) => !a.sizeBytes || a.sizeBytes <= MAX_SUMMARIZE_SIZE)
+      .map((a) => ({ id: a.id, storageKey: a.storageKey!, contentType: a.contentType }));
+  }
+
+  /**
+   * Step: loads the plain text body of an email.
+   *
+   * @param emailId - The email id.
+   * @returns The email body text, or empty string.
+   */
+  @DBOS.step()
+  static async loadEmailText(emailId: number): Promise<string> {
+    const emailRepo = container.resolve<EmailRepository>('EmailRepository');
+    const email = await emailRepo.findById(emailId);
+    return email?.bodyText ?? '';
+  }
+
+  /**
+   * Step: summarizes a single attachment using BAML multimodal.
+   * Images are passed as BAML Image objects; text files as UTF-8 strings.
+   *
+   * @param attachmentId - The attachment id.
+   * @param storageKey - The Tigris storage key.
+   * @param contentType - The MIME type.
+   * @param emailText - The email body for relevance context.
    */
   @DBOS.step({ retriesAllowed: true, maxAttempts: 2, intervalSeconds: 1, backoffRate: 2 })
-  static async summarizeAttachments(emailId: number, companyId: number): Promise<void> {
-    const attachmentRepo = container.resolve<AttachmentRepository>('AttachmentRepository');
+  static async summarizeOneAttachment(attachmentId: number, storageKey: string, contentType: string, emailText: string): Promise<void> {
     const storageService = container.resolve<StorageService>('StorageService');
-    const emailRepo = container.resolve<EmailRepository>('EmailRepository');
+    const attachmentRepo = container.resolve<AttachmentRepository>('AttachmentRepository');
 
-    const allAttachments = await attachmentRepo.findAllByEmailId(emailId);
-    const unsummarized = allAttachments.filter((a) => a.status === 'stored' && !a.summary);
-
-    const email = await emailRepo.findById(emailId);
-    const emailText = email?.bodyText ?? '';
-
-    for (const attachment of unsummarized) {
-      if (attachment.sizeBytes && attachment.sizeBytes > MAX_SUMMARIZE_SIZE) continue;
-      if (!attachment.storageKey) continue;
-
-      try {
-        const content = await storageService.getObject(attachment.storageKey);
-        const summary = await b.SummarizeAttachment(content.toString('utf-8'), emailText);
-        await attachmentRepo.update(attachment.id, { summary });
-      } catch {
-        // Skip summarization failures — attachment is still accessible
-      }
+    try {
+      const content = await storageService.getObject(storageKey);
+      const summary = isImageContentType(contentType)
+        ? await b.SummarizeImageAttachment(Image.fromBase64(contentType, content.toString('base64')), emailText)
+        : await b.SummarizeTextAttachment(content.toString('utf-8'), emailText);
+      await attachmentRepo.update(attachmentId, { summary });
+    } catch {
+      // Skip summarization failures — attachment is still accessible
     }
   }
 
@@ -233,12 +260,13 @@ export class ProcessInboundEmail {
   }
 
   /**
-   * Runs the agent loop at the workflow level. Each LLM turn is a separate step
+   * Child workflow: runs the agent loop. Each LLM turn is a separate step
    * so DBOS can recover from the last completed turn on failure.
    *
    * @param context - The bot context.
    * @returns The reply text, or a precanned error message.
    */
+  @DBOS.workflow()
   static async agentLoop(context: {
     companyId: number;
     companyName: string;
@@ -440,4 +468,16 @@ export class ProcessInboundEmail {
 
     await chatRepo.update(chatId, { updatedAt: new Date() });
   }
+}
+
+const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
+
+/**
+ * Checks whether a MIME type is an image type supported by BAML multimodal.
+ *
+ * @param contentType - The MIME type string.
+ * @returns True if the content type is a supported image format.
+ */
+function isImageContentType(contentType: string): boolean {
+  return IMAGE_TYPES.has(contentType.toLowerCase().split(';')[0].trim());
 }

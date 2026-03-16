@@ -1,4 +1,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+const PRESIGN_EXPIRES_SECONDS = 48 * 60 * 60;
 
 /**
  * Abstraction over object storage (Tigris/S3) for attachment file storage.
@@ -20,6 +23,14 @@ export interface StorageService {
    * @returns The file content as a Buffer.
    */
   getObject(key: string): Promise<Buffer>;
+
+  /**
+   * Generates a presigned download URL for an object.
+   *
+   * @param key - The storage key (path) of the object.
+   * @returns A presigned URL string valid for 48 hours.
+   */
+  getPresignedUrl(key: string): Promise<string>;
 }
 
 /**
@@ -60,6 +71,12 @@ export class TigrisStorageService implements StorageService {
     }));
     return Buffer.from(await response.Body!.transformToByteArray());
   }
+
+  /** {@inheritDoc StorageService.getPresignedUrl} */
+  async getPresignedUrl(key: string): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn: PRESIGN_EXPIRES_SECONDS });
+  }
 }
 
 /**
@@ -76,6 +93,10 @@ export class StubStorageService implements StorageService {
     const entry = this.store.get(key);
     if (!entry) throw new Error(`Object not found: ${key}`);
     return entry.content;
+  }
+
+  async getPresignedUrl(key: string): Promise<string> {
+    return `https://stub-storage.test/${key}?presigned=true`;
   }
 
   /**

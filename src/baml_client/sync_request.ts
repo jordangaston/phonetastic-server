@@ -269,39 +269,6 @@ export class HttpRequest {
     }
   }
   
-  SummarizeAttachment(
-      file_content: string,user_query: string,
-      __baml_options__?: BamlCallOptions<never>
-  ): HTTPRequest {
-    try {
-      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
-      const __env__: Record<string, string> = Object.fromEntries(
-        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
-      );
-
-      // Resolve client option to clientRegistry (client takes precedence)
-      let __clientRegistry__ = __baml_options__?.clientRegistry;
-      if (__baml_options__?.client) {
-        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
-        __clientRegistry__.setPrimary(__baml_options__.client);
-      }
-
-      return this.runtime.buildRequestSync(
-        "SummarizeAttachment",
-        {
-          "file_content": file_content,"user_query": user_query
-        },
-        this.ctxManager.cloneContext(),
-        __baml_options__?.tb?.__tb(),
-        __clientRegistry__,
-        false,
-        __env__,
-      )
-    } catch (error) {
-      throw toBamlError(error);
-    }
-  }
-  
   SummarizeChat(
       messages: string,existing_summary?: string | null,
       __baml_options__?: BamlCallOptions<never>
@@ -323,6 +290,72 @@ export class HttpRequest {
         "SummarizeChat",
         {
           "messages": messages,"existing_summary": existing_summary?? null
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SummarizeImageAttachment(
+      file: Image,user_query: string,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "SummarizeImageAttachment",
+        {
+          "file": file,"user_query": user_query
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SummarizeTextAttachment(
+      file_content: string,user_query: string,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "SummarizeTextAttachment",
+        {
+          "file_content": file_content,"user_query": user_query
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
@@ -605,39 +638,6 @@ export class HttpStreamRequest {
     }
   }
   
-  SummarizeAttachment(
-      file_content: string,user_query: string,
-      __baml_options__?: BamlCallOptions<never>
-  ): HTTPRequest {
-    try {
-      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
-      const __env__: Record<string, string> = Object.fromEntries(
-        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
-      );
-
-      // Resolve client option to clientRegistry (client takes precedence)
-      let __clientRegistry__ = __baml_options__?.clientRegistry;
-      if (__baml_options__?.client) {
-        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
-        __clientRegistry__.setPrimary(__baml_options__.client);
-      }
-
-      return this.runtime.buildRequestSync(
-        "SummarizeAttachment",
-        {
-          "file_content": file_content,"user_query": user_query
-        },
-        this.ctxManager.cloneContext(),
-        __baml_options__?.tb?.__tb(),
-        __clientRegistry__,
-        true,
-        __env__,
-      )
-    } catch (error) {
-      throw toBamlError(error);
-    }
-  }
-  
   SummarizeChat(
       messages: string,existing_summary?: string | null,
       __baml_options__?: BamlCallOptions<never>
@@ -659,6 +659,72 @@ export class HttpStreamRequest {
         "SummarizeChat",
         {
           "messages": messages,"existing_summary": existing_summary?? null
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SummarizeImageAttachment(
+      file: Image,user_query: string,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "SummarizeImageAttachment",
+        {
+          "file": file,"user_query": user_query
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SummarizeTextAttachment(
+      file_content: string,user_query: string,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "SummarizeTextAttachment",
+        {
+          "file_content": file_content,"user_query": user_query
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
