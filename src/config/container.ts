@@ -44,8 +44,12 @@ import { BotSkillService } from '../services/bot-skill-service.js';
 import { SmsService } from '../services/sms-service.js';
 import { EmailAddressService } from '../services/email-address-service.js';
 import { ChatService } from '../services/chat-service.js';
+<<<<<<< email-support/6-workflows
 import { StubResendService, ResendServiceImpl, type ResendService } from '../services/resend-service.js';
 import { StubStorageService, TigrisStorageService, type StorageService } from '../services/storage-service.js';
+=======
+import { StubResendService, type ResendService } from '../services/resend-service.js';
+>>>>>>> email-support/4-inbound-email
 import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
 
@@ -136,7 +140,10 @@ export function setupContainer(overrides?: {
   embeddingService?: EmbeddingService;
   telephonyService?: TelephonyService;
   resendService?: ResendService;
+<<<<<<< email-support/6-workflows
   storageService?: StorageService;
+=======
+>>>>>>> email-support/4-inbound-email
 }): void {
   const db = overrides?.db ?? createDb();
   container.registerInstance<Database>('Database', db);
@@ -148,8 +155,12 @@ export function setupContainer(overrides?: {
   container.registerInstance<FirecrawlService>('FirecrawlService', overrides?.firecrawlService ?? createFirecrawlService());
   container.registerInstance<EmbeddingService>('EmbeddingService', overrides?.embeddingService ?? createEmbeddingService());
   container.registerInstance<TelephonyService>('TelephonyService', overrides?.telephonyService ?? createTelephonyService());
+<<<<<<< email-support/6-workflows
   container.registerInstance<ResendService>('ResendService', overrides?.resendService ?? createResendService());
   container.registerInstance<StorageService>('StorageService', overrides?.storageService ?? createStorageService());
+=======
+  container.registerInstance<ResendService>('ResendService', overrides?.resendService ?? new StubResendService());
+>>>>>>> email-support/4-inbound-email
   if (overrides?.googleCalendarClient) {
     container.registerInstance<GoogleCalendarClient>('GoogleCalendarClient', overrides.googleCalendarClient);
   }
