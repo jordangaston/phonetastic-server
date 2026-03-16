@@ -18,7 +18,23 @@ import { UpdateChatSummary } from './update-chat-summary.js';
 export const processInboundEmailQueue = new WorkflowQueue('process-inbound-email');
 
 const MAX_SUMMARIZE_SIZE = 10 * 1024 * 1024;
+const MAX_AGENT_TURNS = 5;
 const PRECANNED_ERROR = 'Thank you for your email. We have received your message and a team member will follow up shortly.';
+
+/** Serializable message type for the agent loop. */
+interface AgentMessage {
+  role: string;
+  content?: string;
+  tool_calls?: any[];
+  tool_call_id?: string;
+}
+
+/** Return type for a single agent turn step. */
+interface AgentTurnResult {
+  messages: AgentMessage[];
+  replyText: string | null;
+  done: boolean;
+}
 
 /**
  * DBOS workflow that processes an inbound email: stores attachments,
@@ -46,45 +62,61 @@ export class ProcessInboundEmail {
     const context = await ProcessInboundEmail.loadBotContext(chatId, emailId, companyId);
     if (!context) return;
 
-    const replyText = await ProcessInboundEmail.runAgentLoop(context);
+    const replyText = await ProcessInboundEmail.agentLoop(context);
     await ProcessInboundEmail.sendReply(chatId, companyId, replyText);
 
-    const emailRepo = container.resolve<EmailRepository>('EmailRepository');
-    const allEmails = await emailRepo.findAllByChatId(chatId, { limit: 100 });
-    if (allEmails.length > 2) {
+    const emailCount = await ProcessInboundEmail.countEmails(chatId);
+    if (emailCount > 2) {
       await DBOS.startWorkflow(UpdateChatSummary).run(chatId);
     }
   }
 
   /**
-   * Step: starts child workflows to store each attachment, then marks failures.
+   * Sub-workflow: starts child workflows to store each attachment, then marks failures.
+   * Must be a workflow (not a step) because it starts child workflows.
    *
    * @param emailId - The email id.
    * @param externalEmailId - The Resend email ID.
    * @param companyId - The company id.
    */
-  @DBOS.step()
+  @DBOS.workflow()
   static async processAttachments(emailId: number, externalEmailId: string, companyId: number): Promise<void> {
-    const attachmentRepo = container.resolve<AttachmentRepository>('AttachmentRepository');
-    const pendingAttachments = await attachmentRepo.findAllByEmailId(emailId);
-    const pending = pendingAttachments.filter((a) => a.status === 'pending');
+    const pending = await ProcessInboundEmail.loadPendingAttachments(emailId);
 
-    const results = await Promise.allSettled(
-      pending.map(async (attachment) => {
-        const handle = await DBOS.startWorkflow(StoreAttachment).run(
-          attachment.id,
-          externalEmailId,
-          companyId,
-        );
-        return handle;
-      }),
+    const handles = await Promise.all(
+      pending.map((a) => DBOS.startWorkflow(StoreAttachment).run(a.id, externalEmailId, companyId)),
     );
 
+    const results = await Promise.allSettled(handles);
     for (let i = 0; i < results.length; i++) {
       if (results[i].status === 'rejected') {
-        await attachmentRepo.update(pending[i].id, { status: 'failed' });
+        await ProcessInboundEmail.markAttachmentFailed(pending[i].id);
       }
     }
+  }
+
+  /**
+   * Step: loads pending attachment metadata from the database.
+   *
+   * @param emailId - The email id.
+   * @returns Array of pending attachment ids and metadata.
+   */
+  @DBOS.step()
+  static async loadPendingAttachments(emailId: number) {
+    const attachmentRepo = container.resolve<AttachmentRepository>('AttachmentRepository');
+    const all = await attachmentRepo.findAllByEmailId(emailId);
+    return all.filter((a) => a.status === 'pending').map((a) => ({ id: a.id }));
+  }
+
+  /**
+   * Step: marks an attachment as failed.
+   *
+   * @param attachmentId - The attachment id.
+   */
+  @DBOS.step()
+  static async markAttachmentFailed(attachmentId: number): Promise<void> {
+    const attachmentRepo = container.resolve<AttachmentRepository>('AttachmentRepository');
+    await attachmentRepo.update(attachmentId, { status: 'failed' });
   }
 
   /**
@@ -97,6 +129,19 @@ export class ProcessInboundEmail {
   static async loadChat(chatId: number) {
     const chatRepo = container.resolve<ChatRepository>('ChatRepository');
     return chatRepo.findById(chatId);
+  }
+
+  /**
+   * Step: counts total emails in a chat.
+   *
+   * @param chatId - The chat id.
+   * @returns The number of emails.
+   */
+  @DBOS.step()
+  static async countEmails(chatId: number): Promise<number> {
+    const emailRepo = container.resolve<EmailRepository>('EmailRepository');
+    const all = await emailRepo.findAllByChatId(chatId, { limit: 100 });
+    return all.length;
   }
 
   /**
@@ -188,42 +233,44 @@ export class ProcessInboundEmail {
   }
 
   /**
-   * Step: runs the LLM agent tool loop with company tools and a reply tool.
-   * The bot MUST call the reply tool — raw LLM text is treated as a failure.
+   * Runs the agent loop at the workflow level. Each LLM turn is a separate step
+   * so DBOS can recover from the last completed turn on failure.
    *
    * @param context - The bot context.
-   * @returns The reply text from the reply tool call, or a precanned error.
+   * @returns The reply text, or a precanned error message.
    */
-  @DBOS.step({ retriesAllowed: true, maxAttempts: 2, intervalSeconds: 2, backoffRate: 2 })
-  static async runAgentLoop(context: {
+  static async agentLoop(context: {
     companyId: number;
     companyName: string;
     conversationHistory: { direction: string; text: string; subject: string | null }[];
     attachmentSummaries: { filename: string; summary: string }[];
     chatSummary: string | null;
   }): Promise<string> {
-    const embeddingService = container.resolve<EmbeddingService>('EmbeddingService');
-    const faqRepo = container.resolve<FaqRepository>('FaqRepository');
+    const messages = ProcessInboundEmail.buildInitialMessages(context);
 
-    let replyText: string | null = null;
+    for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
+      const result = await ProcessInboundEmail.agentTurn(context.companyId, messages);
+      if (result.replyText) return result.replyText;
+      if (result.done) break;
+      messages.length = 0;
+      messages.push(...result.messages);
+    }
 
-    const tools = {
-      companyInfo: async (query: string) => {
-        try {
-          const [queryEmbedding] = await embeddingService.embed([query]);
-          const results = await faqRepo.searchByEmbedding(context.companyId, queryEmbedding, 3);
-          if (results.length === 0) return { found: false };
-          return { found: true, results: results.map((r) => ({ question: r.question, answer: r.answer })) };
-        } catch {
-          return { found: false, error: 'Search unavailable' };
-        }
-      },
-      reply: (text: string) => {
-        replyText = text;
-        return { success: true };
-      },
-    };
+    return PRECANNED_ERROR;
+  }
 
+  /**
+   * Builds the initial LLM message array from bot context.
+   *
+   * @param context - The bot context.
+   * @returns The initial messages array.
+   */
+  static buildInitialMessages(context: {
+    companyName: string;
+    conversationHistory: { direction: string; text: string; subject: string | null }[];
+    attachmentSummaries: { filename: string; summary: string }[];
+    chatSummary: string | null;
+  }): AgentMessage[] {
     const conversation = context.conversationHistory
       .map((e) => `${e.direction === 'inbound' ? 'Customer' : 'Support'}: ${e.text}`)
       .join('\n');
@@ -232,9 +279,7 @@ export class ProcessInboundEmail {
       ? '\n\nAttachments:\n' + context.attachmentSummaries.map((a) => `- ${a.filename}: ${a.summary}`).join('\n')
       : '';
 
-    const summaryContext = context.chatSummary
-      ? `\n\nConversation summary: ${context.chatSummary}`
-      : '';
+    const summaryContext = context.chatSummary ? `\n\nConversation summary: ${context.chatSummary}` : '';
 
     const systemPrompt = [
       `You are an AI email assistant for ${context.companyName}.`,
@@ -244,81 +289,105 @@ export class ProcessInboundEmail {
       'Be helpful, professional, and concise.',
     ].join(' ');
 
-    const userPrompt = `${summaryContext}\n\nConversation:\n${conversation}${attachmentContext}\n\nPlease respond to the customer's latest message using the reply tool.`;
+    return [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `${summaryContext}\n\nConversation:\n${conversation}${attachmentContext}\n\nPlease respond to the customer's latest message using the reply tool.` },
+    ];
+  }
+
+  /**
+   * Step: executes a single LLM turn — one API call plus tool call processing.
+   * Each turn is checkpointed so recovery resumes from the last completed turn.
+   *
+   * @param companyId - The company id for FAQ search.
+   * @param messages - The current message history.
+   * @returns Updated messages, optional reply text, and whether the loop is done.
+   */
+  @DBOS.step({ retriesAllowed: true, maxAttempts: 2, intervalSeconds: 2, backoffRate: 2 })
+  static async agentTurn(companyId: number, messages: AgentMessage[]): Promise<AgentTurnResult> {
+    const embeddingService = container.resolve<EmbeddingService>('EmbeddingService');
+    const faqRepo = container.resolve<FaqRepository>('FaqRepository');
+
+    const toolDefinitions = [
+      {
+        type: 'function' as const,
+        function: {
+          name: 'companyInfo',
+          description: 'Searches the company knowledge base to answer questions about the business.',
+          parameters: { type: 'object', properties: { query: { type: 'string', description: 'The question to search for.' } }, required: ['query'] },
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'reply',
+          description: 'Sends the email reply to the customer. You MUST call this tool to respond.',
+          parameters: { type: 'object', properties: { text: { type: 'string', description: 'The reply text to send.' } }, required: ['text'] },
+        },
+      },
+    ];
 
     try {
       const { OpenAI } = await import('openai');
       const openai = new OpenAI();
 
-      const toolDefinitions = [
-        {
-          type: 'function' as const,
-          function: {
-            name: 'companyInfo',
-            description: 'Searches the company knowledge base to answer questions about the business.',
-            parameters: {
-              type: 'object',
-              properties: { query: { type: 'string', description: 'The question to search for.' } },
-              required: ['query'],
-            },
-          },
-        },
-        {
-          type: 'function' as const,
-          function: {
-            name: 'reply',
-            description: 'Sends the email reply to the customer. You MUST call this tool to respond.',
-            parameters: {
-              type: 'object',
-              properties: { text: { type: 'string', description: 'The reply text to send.' } },
-              required: ['text'],
-            },
-          },
-        },
-      ];
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4.1-nano',
+        messages: messages as any[],
+        tools: toolDefinitions,
+      });
 
-      const messages: any[] = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ];
-
-      for (let turn = 0; turn < 5; turn++) {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4.1-nano',
-          messages,
-          tools: toolDefinitions,
-        });
-
-        const choice = response.choices[0];
-        if (!choice.message.tool_calls?.length) break;
-
-        messages.push(choice.message);
-
-        for (const toolCall of choice.message.tool_calls) {
-          const fn = (toolCall as any).function;
-          const args = JSON.parse(fn.arguments);
-          let result: any;
-
-          if (fn.name === 'companyInfo') {
-            result = await tools.companyInfo(args.query);
-          } else if (fn.name === 'reply') {
-            result = tools.reply(args.text);
-          }
-
-          messages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result),
-          });
-
-          if (replyText) return replyText;
-        }
+      const choice = response.choices[0];
+      if (!choice.message.tool_calls?.length) {
+        return { messages, replyText: null, done: true };
       }
-    } catch {
-      // LLM failure — fall through to precanned error
-    }
 
-    return replyText ?? PRECANNED_ERROR;
+      const updated = [...messages, choice.message as any];
+
+      for (const toolCall of choice.message.tool_calls) {
+        const fn = (toolCall as any).function;
+        const args = JSON.parse(fn.arguments);
+        let result: any;
+
+        if (fn.name === 'companyInfo') {
+          result = await ProcessInboundEmail.executeCompanyInfoTool(companyId, args.query, embeddingService, faqRepo);
+        } else if (fn.name === 'reply') {
+          updated.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: true }) });
+          return { messages: updated, replyText: args.text, done: true };
+        }
+
+        updated.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+      }
+
+      return { messages: updated, replyText: null, done: false };
+    } catch {
+      return { messages, replyText: null, done: true };
+    }
+  }
+
+  /**
+   * Executes the companyInfo tool: embeds the query and searches the FAQ vector store.
+   *
+   * @param companyId - The company id.
+   * @param query - The search query.
+   * @param embeddingService - The embedding service.
+   * @param faqRepo - The FAQ repository.
+   * @returns The search results or an error indicator.
+   */
+  static async executeCompanyInfoTool(
+    companyId: number,
+    query: string,
+    embeddingService: EmbeddingService,
+    faqRepo: FaqRepository,
+  ) {
+    try {
+      const [queryEmbedding] = await embeddingService.embed([query]);
+      const results = await faqRepo.searchByEmbedding(companyId, queryEmbedding, 3);
+      if (results.length === 0) return { found: false };
+      return { found: true, results: results.map((r) => ({ question: r.question, answer: r.answer })) };
+    } catch {
+      return { found: false, error: 'Search unavailable' };
+    }
   }
 
   /**
