@@ -44,6 +44,7 @@ import { BotSkillService } from '../services/bot-skill-service.js';
 import { SmsService } from '../services/sms-service.js';
 import { EmailAddressService } from '../services/email-address-service.js';
 import { ChatService } from '../services/chat-service.js';
+import { StubResendService, type ResendService } from '../services/resend-service.js';
 import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
 
@@ -119,6 +120,7 @@ export function setupContainer(overrides?: {
   firecrawlService?: FirecrawlService;
   embeddingService?: EmbeddingService;
   telephonyService?: TelephonyService;
+  resendService?: ResendService;
 }): void {
   const db = overrides?.db ?? createDb();
   container.registerInstance<Database>('Database', db);
@@ -130,6 +132,7 @@ export function setupContainer(overrides?: {
   container.registerInstance<FirecrawlService>('FirecrawlService', overrides?.firecrawlService ?? createFirecrawlService());
   container.registerInstance<EmbeddingService>('EmbeddingService', overrides?.embeddingService ?? createEmbeddingService());
   container.registerInstance<TelephonyService>('TelephonyService', overrides?.telephonyService ?? createTelephonyService());
+  container.registerInstance<ResendService>('ResendService', overrides?.resendService ?? new StubResendService());
   if (overrides?.googleCalendarClient) {
     container.registerInstance<GoogleCalendarClient>('GoogleCalendarClient', overrides.googleCalendarClient);
   }
