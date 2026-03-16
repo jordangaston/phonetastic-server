@@ -59,7 +59,7 @@ export class StoreAttachment {
   }
 
   /**
-   * Step: downloads attachment content from Resend.
+   * Step: downloads attachment content from Resend via signed URL.
    *
    * @param externalEmailId - The Resend email ID.
    * @param externalAttachmentId - The Resend attachment ID.
@@ -68,8 +68,7 @@ export class StoreAttachment {
   @DBOS.step(RETRY_CONFIG)
   static async downloadFromResend(externalEmailId: string, externalAttachmentId: string): Promise<Buffer> {
     const resendService = container.resolve<ResendService>('ResendService');
-    await resendService.getReceivedEmail(externalEmailId);
-    return Buffer.from(`attachment-content-${externalAttachmentId}`);
+    return resendService.getAttachmentContent(externalEmailId, externalAttachmentId);
   }
 
   /**

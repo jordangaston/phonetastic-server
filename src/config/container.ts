@@ -44,8 +44,8 @@ import { BotSkillService } from '../services/bot-skill-service.js';
 import { SmsService } from '../services/sms-service.js';
 import { EmailAddressService } from '../services/email-address-service.js';
 import { ChatService } from '../services/chat-service.js';
-import { StubResendService, type ResendService } from '../services/resend-service.js';
-import { StubStorageService, type StorageService } from '../services/storage-service.js';
+import { StubResendService, ResendServiceImpl, type ResendService } from '../services/resend-service.js';
+import { StubStorageService, TigrisStorageService, type StorageService } from '../services/storage-service.js';
 import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
 
@@ -96,6 +96,20 @@ function createTelephonyService(): TelephonyService {
   return new StubTelephonyService();
 }
 
+function createResendService(): ResendService {
+  if (env.RESEND_API_KEY && env.RESEND_WEBHOOK_SECRET) {
+    return new ResendServiceImpl(env.RESEND_API_KEY, env.RESEND_WEBHOOK_SECRET);
+  }
+  return new StubResendService();
+}
+
+function createStorageService(): StorageService {
+  if (env.TIGRIS_BUCKET_NAME && env.AWS_ENDPOINT_URL_S3) {
+    return new TigrisStorageService(env.TIGRIS_BUCKET_NAME, env.AWS_ENDPOINT_URL_S3, env.AWS_REGION);
+  }
+  return new StubStorageService();
+}
+
 /**
  * Initializes the Tsyringe DI container with core dependencies.
  *
@@ -134,8 +148,8 @@ export function setupContainer(overrides?: {
   container.registerInstance<FirecrawlService>('FirecrawlService', overrides?.firecrawlService ?? createFirecrawlService());
   container.registerInstance<EmbeddingService>('EmbeddingService', overrides?.embeddingService ?? createEmbeddingService());
   container.registerInstance<TelephonyService>('TelephonyService', overrides?.telephonyService ?? createTelephonyService());
-  container.registerInstance<ResendService>('ResendService', overrides?.resendService ?? new StubResendService());
-  container.registerInstance<StorageService>('StorageService', overrides?.storageService ?? new StubStorageService());
+  container.registerInstance<ResendService>('ResendService', overrides?.resendService ?? createResendService());
+  container.registerInstance<StorageService>('StorageService', overrides?.storageService ?? createStorageService());
   if (overrides?.googleCalendarClient) {
     container.registerInstance<GoogleCalendarClient>('GoogleCalendarClient', overrides.googleCalendarClient);
   }

@@ -166,11 +166,12 @@ describe('ChatService', () => {
   });
 
   describe('listEmails', () => {
-    it('returns emails with attachments', async () => {
+    it('returns emails with attachments via expand join', async () => {
       userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
       chatRepo.findById.mockResolvedValue({ id: 10, companyId: 5 });
-      emailRepo.findAllByChatId.mockResolvedValue([{ id: 1, bodyText: 'hi' }]);
-      attachmentRepo.findAllByEmailId.mockResolvedValue([{ id: 1, filename: 'f.pdf' }]);
+      emailRepo.findAllByChatId.mockResolvedValue([
+        { id: 1, bodyText: 'hi', attachments: [{ id: 1, filename: 'f.pdf' }] },
+      ]);
 
       const result = await service.listEmails(1, 10);
 
