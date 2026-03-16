@@ -14,6 +14,7 @@ import { skillController } from './controllers/skill-controller.js';
 import { botSkillController } from './controllers/bot-skill-controller.js';
 import { smsController } from './controllers/sms-controller.js';
 import { twilioWebhookController } from './controllers/twilio-webhook-controller.js';
+import { emailAddressController } from './controllers/email-address-controller.js';
 
 /**
  * Builds and configures the Fastify application instance.
@@ -47,6 +48,7 @@ export async function buildApp(options?: { logger?: boolean; dbos?: boolean }): 
   await app.register(botSkillController);
   await app.register(smsController);
   await app.register(twilioWebhookController);
+  await app.register(emailAddressController);
 
   if (options?.dbos !== false) {
     const { workflowController } = await import('./controllers/workflow-controller.js');

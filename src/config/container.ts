@@ -28,6 +28,7 @@ import { EndUserRepository } from '../repositories/end-user-repository.js';
 import { SkillRepository } from '../repositories/skill-repository.js';
 import { BotSkillRepository } from '../repositories/bot-skill-repository.js';
 import { SmsMessageRepository } from '../repositories/sms-message-repository.js';
+import { EmailAddressRepository } from '../repositories/email-address-repository.js';
 import { AuthService } from '../services/auth-service.js';
 import { CompanyService } from '../services/company-service.js';
 import { OtpService } from '../services/otp-service.js';
@@ -38,6 +39,7 @@ import { CalendarService } from '../services/calendar-service.js';
 import { SkillService } from '../services/skill-service.js';
 import { BotSkillService } from '../services/bot-skill-service.js';
 import { SmsService } from '../services/sms-service.js';
+import { EmailAddressService } from '../services/email-address-service.js';
 import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
 
@@ -148,6 +150,7 @@ export function setupContainer(overrides?: {
   container.register('SkillRepository', { useClass: SkillRepository });
   container.register('BotSkillRepository', { useClass: BotSkillRepository });
   container.register('SmsMessageRepository', { useClass: SmsMessageRepository });
+  container.register('EmailAddressRepository', { useClass: EmailAddressRepository });
   container.register('AuthService', { useClass: AuthService });
   container.register('CompanyService', { useClass: CompanyService });
   container.register('OtpService', { useClass: OtpService });
@@ -158,6 +161,7 @@ export function setupContainer(overrides?: {
   container.register('SkillService', { useClass: SkillService });
   container.register('BotSkillService', { useClass: BotSkillService });
   container.register('SmsService', { useClass: SmsService });
+  container.register('EmailAddressService', { useClass: EmailAddressService });
 }
 
 export { container };

@@ -49,6 +49,12 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+export class ConflictError extends AppError {
+  constructor(message: string, code = 409) {
+    super(message, 409, code);
+  }
+}
+
 /**
  * Thrown when a user lacks permission to access a resource.
  *
