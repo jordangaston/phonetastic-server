@@ -74,6 +74,37 @@ export async function chatController(app: FastifyInstance): Promise<void> {
 
     return reply.send({ emails: emailRows.map(formatEmail), page_token: nextPageToken });
   });
+
+  /**
+   * Sends an owner reply in a chat. Persists with status 'pending' and disables bot.
+   *
+   * @param id - The chat id.
+   * @param email.body_text - The reply text content.
+   * @param email.attachments - Optional array of {filename, content_type, content} objects.
+   * @returns The created email with status 'pending'.
+   * @throws 404 if the chat is not found.
+   */
+  app.post<{
+    Params: { id: string };
+    Body: {
+      email: {
+        body_text: string;
+        attachments?: { filename: string; content_type: string; content: string }[];
+      };
+    };
+  }>('/v1/chats/:id/emails', { preHandler: [authGuard] }, async (request, reply) => {
+    const chatId = Number(request.params.id);
+    const { body_text, attachments } = request.body.email;
+
+    const attachmentData = attachments?.map((a) => ({
+      filename: a.filename,
+      contentType: a.content_type,
+      content: a.content,
+    }));
+
+    const email = await chatService.sendOwnerReply(request.userId, chatId, body_text, attachmentData);
+    return reply.status(202).send({ email: formatEmail(email) });
+  });
 }
 
 /**

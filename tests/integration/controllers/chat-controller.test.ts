@@ -184,4 +184,76 @@ describe('Chat Controller', () => {
       expect(response.statusCode).toBe(400);
     });
   });
+
+  describe('POST /v1/chats/:id/emails', () => {
+    it('creates a pending outbound email and disables bot', async () => {
+      const { user, accessToken } = await createTestUser(app);
+      const company = await companyFactory.create({ name: 'Reply Co' });
+      await getTestDb().update(users).set({ companyId: company.id }).where(eq(users.id, user.id));
+      const endUser = await endUserFactory.create({ companyId: company.id, email: 'reply@example.com' });
+      const chat = await chatFactory.create({ companyId: company.id, endUserId: endUser.id, botEnabled: true });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/v1/chats/${chat.id}/emails`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: { email: { body_text: 'Thanks for reaching out!' } },
+      });
+
+      expect(response.statusCode).toBe(202);
+      const body = response.json();
+      expect(body.email.direction).toBe('outbound');
+      expect(body.email.status).toBe('pending');
+      expect(body.email.user_id).toBe(user.id);
+      expect(body.email.body_text).toBe('Thanks for reaching out!');
+
+      const chatResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/chats/${chat.id}/emails`,
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      const chatBody = chatResponse.json();
+      expect(chatBody.emails).toHaveLength(1);
+    });
+
+    it('creates a reply with attachments', async () => {
+      const { user, accessToken } = await createTestUser(app);
+      const company = await companyFactory.create({ name: 'Attach Co' });
+      await getTestDb().update(users).set({ companyId: company.id }).where(eq(users.id, user.id));
+      const endUser = await endUserFactory.create({ companyId: company.id, email: 'attach@example.com' });
+      const chat = await chatFactory.create({ companyId: company.id, endUserId: endUser.id });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/v1/chats/${chat.id}/emails`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: {
+          email: {
+            body_text: 'See attached',
+            attachments: [{ filename: 'doc.pdf', content_type: 'application/pdf', content: 'base64data' }],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(202);
+      expect(response.json().email.attachments).toHaveLength(1);
+      expect(response.json().email.attachments[0].filename).toBe('doc.pdf');
+    });
+
+    it('returns 404 for wrong company', async () => {
+      const { accessToken } = await createTestUser(app);
+      const otherCompany = await companyFactory.create({ name: 'Wrong Co' });
+      const endUser = await endUserFactory.create({ companyId: otherCompany.id, email: 'wrong@example.com' });
+      const chat = await chatFactory.create({ companyId: otherCompany.id, endUserId: endUser.id });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/v1/chats/${chat.id}/emails`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: { email: { body_text: 'Nope' } },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
 });

@@ -115,6 +115,56 @@ export class ChatService {
   }
 
   /**
+   * Persists an owner reply email with status 'pending' and disables the bot.
+   *
+   * @precondition The user must belong to the chat's company.
+   * @postcondition An outbound email row exists with status 'pending'. Bot is disabled on the chat.
+   * @param userId - The authenticated user's id.
+   * @param chatId - The chat id.
+   * @param bodyText - The reply text content.
+   * @param attachmentData - Optional attachment data (base64-encoded content).
+   * @returns The created email row with attachments.
+   * @throws {BadRequestError} If the user has no company.
+   * @throws {NotFoundError} If the chat is not found or belongs to another company.
+   */
+  async sendOwnerReply(
+    userId: number,
+    chatId: number,
+    bodyText: string,
+    attachmentData?: { filename: string; contentType: string; content: string }[],
+  ) {
+    const companyId = await this.requireCompanyId(userId);
+    const chat = await this.chatRepo.findById(chatId);
+    if (!chat || chat.companyId !== companyId) throw new NotFoundError('Chat not found');
+
+    return this.db.transaction(async (tx) => {
+      const email = await this.emailRepo.create({
+        chatId: chat.id,
+        direction: 'outbound',
+        userId,
+        bodyText,
+        status: 'pending',
+      }, tx);
+
+      const createdAttachments = [];
+      if (attachmentData) {
+        for (const att of attachmentData) {
+          const row = await this.attachmentRepo.create({
+            emailId: email.id,
+            filename: att.filename,
+            contentType: att.contentType,
+          }, tx);
+          createdAttachments.push(row);
+        }
+      }
+
+      await this.chatRepo.update(chat.id, { botEnabled: false, updatedAt: new Date() }, tx);
+
+      return { ...email, attachments: createdAttachments };
+    });
+  }
+
+  /**
    * Returns a paginated list of emails in a chat with attachment metadata.
    *
    * @precondition The user must belong to the chat's company.
