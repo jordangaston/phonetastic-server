@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# email-test — wrapper around GWS CLI for end-to-end email bot testing
+#
+# Usage:
+#   scripts/email-test send --company "Acme Auto" --subject "Question" --body "Hi"
+#   scripts/email-test reply --chat-id 42 --body "Follow-up"
+#   scripts/email-test send --company "Acme" --body "See attached" --attach ./file.pdf
+#   scripts/email-test watch
+#   scripts/email-test chats --company "Acme Auto"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Check for gws CLI
+if ! command -v gws &> /dev/null; then
+  echo "Error: gws (Google Workspace CLI) is not installed."
+  echo ""
+  echo "Setup instructions:"
+  echo "  1. Install: npm install -g @googleworkspace/cli"
+  echo "  2. Authenticate: gws auth login"
+  exit 1
+fi
+
+# Helper: resolve company email address from DB
+resolve_company_email() {
+  local company_name="$1"
+  local result
+  result=$(cd "$PROJECT_DIR" && npx tsx -e "
+    import 'dotenv/config';
+    import { createDb } from './src/db/index.js';
+    import { emailAddresses } from './src/db/schema/email-addresses.js';
+    import { companies } from './src/db/schema/companies.js';
+    import { eq } from 'drizzle-orm';
+
+    const db = createDb();
+    const rows = await db
+      .select({ address: emailAddresses.address })
+      .from(emailAddresses)
+      .innerJoin(companies, eq(emailAddresses.companyId, companies.id))
+      .where(eq(companies.name, '${company_name}'));
+    if (rows.length === 0) {
+      console.error('No email address found for company: ${company_name}');
+      process.exit(1);
+    }
+    console.log(rows[0].address);
+    process.exit(0);
+  " 2>/dev/null)
+  echo "$result"
+}
+
+# Helper: get latest message ID for threading
+get_latest_message_id() {
+  local chat_id="$1"
+  local result
+  result=$(cd "$PROJECT_DIR" && npx tsx -e "
+    import 'dotenv/config';
+    import { createDb } from './src/db/index.js';
+    import { emails } from './src/db/schema/emails.js';
+    import { eq, desc } from 'drizzle-orm';
+
+    const db = createDb();
+    const rows = await db
+      .select({ messageId: emails.messageId })
+      .from(emails)
+      .where(eq(emails.chatId, ${chat_id}))
+      .orderBy(desc(emails.createdAt))
+      .limit(1);
+    if (rows.length === 0 || !rows[0].messageId) {
+      console.error('No emails found in chat ${chat_id}');
+      process.exit(1);
+    }
+    console.log(rows[0].messageId);
+    process.exit(0);
+  " 2>/dev/null)
+  echo "$result"
+}
+
+COMMAND="${1:-help}"
+shift || true
+
+case "$COMMAND" in
+  send)
+    COMPANY=""
+    SUBJECT="Test email"
+    BODY=""
+    ATTACH=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --company) COMPANY="$2"; shift 2 ;;
+        --subject) SUBJECT="$2"; shift 2 ;;
+        --body) BODY="$2"; shift 2 ;;
+        --attach) ATTACH="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+      esac
+    done
+    if [[ -z "$COMPANY" || -z "$BODY" ]]; then
+      echo "Usage: email-test send --company <name> --body <text> [--subject <text>] [--attach <file>]"
+      exit 1
+    fi
+    TO_ADDRESS=$(resolve_company_email "$COMPANY")
+    ATTACH_FLAG=""
+    if [[ -n "$ATTACH" ]]; then
+      ATTACH_FLAG="--attachment $ATTACH"
+    fi
+    echo "Sending email to $TO_ADDRESS..."
+    gws gmail messages send --to "$TO_ADDRESS" --subject "$SUBJECT" --body "$BODY" $ATTACH_FLAG --format json
+    ;;
+
+  reply)
+    CHAT_ID=""
+    BODY=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --chat-id) CHAT_ID="$2"; shift 2 ;;
+        --body) BODY="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+      esac
+    done
+    if [[ -z "$CHAT_ID" || -z "$BODY" ]]; then
+      echo "Usage: email-test reply --chat-id <id> --body <text>"
+      exit 1
+    fi
+    MESSAGE_ID=$(get_latest_message_id "$CHAT_ID")
+    echo "Replying to chat $CHAT_ID (in-reply-to: $MESSAGE_ID)..."
+    gws gmail messages send --body "$BODY" --in-reply-to "$MESSAGE_ID" --format json
+    ;;
+
+  watch)
+    echo "Watching for incoming emails (press Ctrl+C to stop)..."
+    gws gmail messages list --format json --max-results 10
+    ;;
+
+  chats)
+    COMPANY=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --company) COMPANY="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+      esac
+    done
+    if [[ -z "$COMPANY" ]]; then
+      echo "Usage: email-test chats --company <name>"
+      exit 1
+    fi
+    cd "$PROJECT_DIR" && npx tsx -e "
+      import 'dotenv/config';
+      import { createDb } from './src/db/index.js';
+      import { chats } from './src/db/schema/chats.js';
+      import { companies } from './src/db/schema/companies.js';
+      import { eq, desc } from 'drizzle-orm';
+
+      const db = createDb();
+      const rows = await db
+        .select()
+        .from(chats)
+        .innerJoin(companies, eq(chats.companyId, companies.id))
+        .where(eq(companies.name, '${COMPANY}'))
+        .orderBy(desc(chats.updatedAt))
+        .limit(10);
+      console.log(JSON.stringify(rows.map(r => ({
+        id: r.chats.id,
+        status: r.chats.status,
+        bot_enabled: r.chats.botEnabled,
+        subject: r.chats.subject,
+        updated_at: r.chats.updatedAt,
+      })), null, 2));
+      process.exit(0);
+    "
+    ;;
+
+  help|*)
+    echo "email-test — End-to-end email bot testing"
+    echo ""
+    echo "Commands:"
+    echo "  send    --company <name> --body <text> [--subject <text>] [--attach <file>]"
+    echo "  reply   --chat-id <id> --body <text>"
+    echo "  watch   Stream recent emails"
+    echo "  chats   --company <name>  List recent chats"
+    echo ""
+    echo "Prerequisites:"
+    echo "  1. Install gws: npm install -g @googleworkspace/cli"
+    echo "  2. Authenticate: gws auth login"
+    ;;
+esac

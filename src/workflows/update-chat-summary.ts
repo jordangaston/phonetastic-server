@@ -1,6 +1,7 @@
 import { DBOS, WorkflowQueue } from '@dbos-inc/dbos-sdk';
 import { eq } from 'drizzle-orm';
 import { container } from 'tsyringe';
+import { b } from '../baml_client/index.js';
 import { chats } from '../db/schema/chats.js';
 import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { EmailRepository } from '../repositories/email-repository.js';
@@ -72,11 +73,7 @@ export class UpdateChatSummary {
       .map((m) => `${m.direction === 'inbound' ? 'Customer' : 'Support'}: ${m.text}`)
       .join('\n');
 
-    const prompt = existingSummary
-      ? `Previous summary:\n${existingSummary}\n\nNew messages:\n${transcript}`
-      : transcript;
-
-    return `Summary of ${messages.length} email(s): ${prompt.slice(0, 200)}`;
+    return b.SummarizeChat(transcript, existingSummary);
   }
 
   /**
