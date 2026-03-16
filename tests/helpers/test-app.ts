@@ -8,6 +8,7 @@ import { StubGoogleCalendarClient } from '../../src/services/google-calendar-cli
 import { StubFirecrawlService } from '../../src/services/firecrawl-service.js';
 import { StubEmbeddingService } from '../../src/services/embedding-service.js';
 import { StubTelephonyService } from '../../src/services/telephony-service.js';
+import { StubResendService } from '../../src/services/resend-service.js';
 import { setupContainer } from '../../src/config/container.js';
 import { buildApp } from '../../src/app.js';
 import type { FastifyInstance } from 'fastify';
@@ -16,6 +17,7 @@ let db: Database | undefined;
 let app: FastifyInstance | undefined;
 let otpProvider: StubOtpProvider | undefined;
 let telephonyService: StubTelephonyService | undefined;
+let resendService: StubResendService | undefined;
 
 /**
  * Returns a shared test database instance configured to use the "test" schema.
@@ -48,6 +50,16 @@ export function getStubTelephonyService(): StubTelephonyService {
 }
 
 /**
+ * Returns a shared stub Resend service for assertions.
+ */
+export function getStubResendService(): StubResendService {
+  if (!resendService) {
+    resendService = new StubResendService();
+  }
+  return resendService;
+}
+
+/**
  * Builds a test-configured Fastify app with the test database.
  * All external services use stubs to prevent real API calls.
  */
@@ -62,6 +74,7 @@ export async function getTestApp(): Promise<FastifyInstance> {
       firecrawlService: new StubFirecrawlService(),
       embeddingService: new StubEmbeddingService(),
       telephonyService: getStubTelephonyService(),
+      resendService: getStubResendService(),
     });
     app = await buildApp({ logger: false, dbos: false });
     await app.ready();
@@ -81,4 +94,5 @@ export async function closeTestApp(): Promise<void> {
   db = undefined;
   otpProvider = undefined;
   telephonyService = undefined;
+  resendService = undefined;
 }
