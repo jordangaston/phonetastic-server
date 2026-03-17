@@ -177,35 +177,40 @@ The chat history is the LLM's view of the conversation. It must include human me
    - **Owner email** → role `user`, label `[Human Agent]`, content is `body_text`
    - **Tool call** → rendered as an `assistant` role message showing the tool call input, followed by a `user` role message showing the tool result (see format below)
 
-**BAML-aligned tool call format in chat history:**
+**Tool call format in chat history:**
 
-BAML uses prompt injection with `ctx.output_format` to define the output schema as a readable type definition. The model responds with JSON matching that schema. To keep the chat history format-consistent with what the model actually produces and parses, tool calls in the history are rendered as the JSON the model originally produced (matching the BAML schema), and the result as a labeled JSON block:
+Tool calls are rendered as two separate messages in the chat history. The format uses `type` discriminators (`function_call` and `function_call_response`) that align with how models were trained to understand tool use, while the payload itself uses the BAML class schema JSON so the model sees the same structure it produces.
 
 ```
 [assistant role]
-{"tool_name": "company_info", "query": "What are your oil change rates?"}
+{"type": "function_call", "tool_call_id": "abc-123", "tool_name": "company_info", "input": {"query": "What are your oil change rates?"}}
 
 [user role]
-Tool result for tool_call_id abc-123:
-{"found": true, "results": [{"question": "Oil change pricing?", "answer": "Starting at $39.99"}]}
+{"type": "function_call_response", "tool_call_id": "abc-123", "output": {"found": true, "results": [{"question": "Oil change pricing?", "answer": "Starting at $39.99"}]}}
 ```
 
-This format is deliberately simple. The `tool_call_id` links input to output. The JSON matches the BAML class schema (`CompanyInfoTool`, `ReplyTool`) so the model sees the same structure it is asked to produce. No OpenAI-specific `tool_calls` array or Anthropic `tool_use` blocks — just the JSON that BAML's schema-aligned parsing expects.
+The `type` field disambiguates tool calls from regular messages. The `tool_call_id` links request to response. The `input` object matches the BAML class schema (`CompanyInfoTool`, `ReplyTool`) so the model sees the same structure it is asked to produce. No provider-specific wire format — just typed JSON that is both model-friendly and BAML-parseable.
 
 **BAML types for chat history:**
 
 ```baml
-class ToolCallEntry {
+class FunctionCall {
+  type "function_call"
   tool_call_id string
   tool_name string
   input string @description("JSON matching the tool's BAML class schema")
+}
+
+class FunctionCallResponse {
+  type "function_call_response"
+  tool_call_id string
   output string @description("JSON result from tool execution")
 }
 
 class ChatHistoryEntry {
   role string @description("'user' or 'assistant'")
-  label string @description("'[Customer]', '[Human Agent]', or '[Tool Call]'")
-  content string
+  label string? @description("'[Customer]' or '[Human Agent]' for human messages, null for tool calls")
+  content string @description("Message text, or JSON function_call / function_call_response")
 }
 ```
 
