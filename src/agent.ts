@@ -302,7 +302,7 @@ export default defineAgent({
       session.userData.userId = userId;
       session.userData.botId = botParticipant?.botId ?? undefined;
 
-      const botVoice = await voiceRepository.findByBotId(botParticipant?.botId);
+      const botVoice = await voiceRepository.findByBotId(session.userData.botId);
       if (botVoice) {
         log().info({ name: botVoice.name, externalId: botVoice.externalId, id: botVoice.id }, 'Using configured voice');
         session.tts = inference.TTS.fromModelString(`cartesia/sonic:${botVoice.externalId}`);
