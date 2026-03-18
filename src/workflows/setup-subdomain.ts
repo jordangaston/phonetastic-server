@@ -3,10 +3,12 @@ import { container } from 'tsyringe';
 import type { SubdomainRepository } from '../repositories/subdomain-repository.js';
 import type { ResendDomainService, DnsRecord } from '../services/resend-domain-service.js';
 import type { GoDaddyDnsService } from '../services/godaddy-dns-service.js';
+import type { SubdomainStatus } from '../db/schema/enums.js';
 
 export const setupSubdomainQueue = new WorkflowQueue('setup-subdomain');
 
 const MAX_POLL_ATTEMPTS = 10;
+const TERMINAL_STATUSES = new Set<string>(['verified', 'failed', 'partially_failed']);
 
 /**
  * DBOS workflow that sets up a subdomain: creates a Resend domain,
@@ -15,10 +17,10 @@ const MAX_POLL_ATTEMPTS = 10;
 export class SetupSubdomain {
   /**
    * Orchestrates subdomain setup: create domain, store ID, configure DNS,
-   * trigger and poll verification, mark verified.
+   * trigger verification, poll until terminal status, persist final status.
    *
    * @precondition A subdomain row must exist in the database.
-   * @postcondition The subdomain is verified and ready for email routing.
+   * @postcondition The subdomain status reflects the Resend domain status.
    * @param subdomainId - The subdomain row id.
    */
   @DBOS.workflow()
@@ -27,8 +29,8 @@ export class SetupSubdomain {
     await SetupSubdomain.storeResendDomainId(subdomainId, domainId);
     await SetupSubdomain.configureDns(records);
     await SetupSubdomain.triggerVerification(domainId);
-    await SetupSubdomain.pollVerification(domainId);
-    await SetupSubdomain.markVerified(subdomainId);
+    const status = await SetupSubdomain.pollVerification(domainId);
+    await SetupSubdomain.updateStatus(subdomainId, status as SubdomainStatus);
   }
 
   /**
@@ -81,26 +83,30 @@ export class SetupSubdomain {
   }
 
   /**
-   * Step: polls Resend for domain verification with bounded retries.
+   * Step: polls Resend for domain status with bounded retries.
+   * Retries until a terminal status is reached (verified, failed, partially_failed).
    *
    * @param domainId - The Resend domain ID.
-   * @throws {Error} If verification does not succeed after MAX_POLL_ATTEMPTS.
+   * @returns The terminal domain status string.
+   * @throws {Error} If a terminal status is not reached after MAX_POLL_ATTEMPTS.
    */
   @DBOS.step({ retriesAllowed: true, maxAttempts: MAX_POLL_ATTEMPTS, intervalSeconds: 10, backoffRate: 2 })
-  static async pollVerification(domainId: string): Promise<void> {
+  static async pollVerification(domainId: string): Promise<string> {
     const resendDomainService = container.resolve<ResendDomainService>('ResendDomainService');
-    const verified = await resendDomainService.checkVerification(domainId);
-    if (!verified) throw new Error('Domain not yet verified');
+    const status = await resendDomainService.checkVerification(domainId);
+    if (!TERMINAL_STATUSES.has(status)) throw new Error(`Domain status is ${status}, waiting for terminal status`);
+    return status;
   }
 
   /**
-   * Step: marks the subdomain as verified in the database.
+   * Step: persists the domain status on the subdomain row.
    *
    * @param subdomainId - The subdomain row id.
+   * @param status - The domain status to persist.
    */
   @DBOS.step()
-  static async markVerified(subdomainId: number): Promise<void> {
+  static async updateStatus(subdomainId: number, status: SubdomainStatus): Promise<void> {
     const subdomainRepo = container.resolve<SubdomainRepository>('SubdomainRepository');
-    await subdomainRepo.update(subdomainId, { verified: true });
+    await subdomainRepo.update(subdomainId, { status });
   }
 }

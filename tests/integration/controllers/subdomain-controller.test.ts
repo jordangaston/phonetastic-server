@@ -37,7 +37,7 @@ describe('Subdomain Controller', () => {
       expect(response.statusCode).toBe(202);
       const body = response.json();
       expect(body.subdomain.subdomain).toMatch(/^\w+-\w+-\d+$/);
-      expect(body.subdomain.verified).toBe(false);
+      expect(body.subdomain.status).toBe('not_started');
     });
 
     it('returns 400 when user has no company', async () => {

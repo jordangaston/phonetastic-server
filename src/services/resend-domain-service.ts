@@ -30,12 +30,12 @@ export interface ResendDomainService {
   triggerVerification(domainId: string): Promise<void>;
 
   /**
-   * Checks whether a domain has passed verification.
+   * Retrieves the current verification status of a domain.
    *
    * @param domainId - The Resend domain ID.
-   * @returns True if the domain is verified.
+   * @returns The domain status string (e.g. 'verified', 'pending', 'failed').
    */
-  checkVerification(domainId: string): Promise<boolean>;
+  checkVerification(domainId: string): Promise<string>;
 }
 
 /**
@@ -73,10 +73,10 @@ export class ResendDomainServiceImpl implements ResendDomainService {
   }
 
   /** {@inheritDoc ResendDomainService.checkVerification} */
-  async checkVerification(domainId: string): Promise<boolean> {
+  async checkVerification(domainId: string): Promise<string> {
     const { data, error } = await this.client.domains.get(domainId);
     if (error) throw new Error(`Resend checkVerification failed: ${error.message}`);
-    return data!.status === 'verified';
+    return data!.status;
   }
 }
 
@@ -84,7 +84,7 @@ export class ResendDomainServiceImpl implements ResendDomainService {
  * Stub implementation of ResendDomainService for testing.
  */
 export class StubResendDomainService implements ResendDomainService {
-  domains: Map<string, { verified: boolean; records: DnsRecord[] }> = new Map();
+  domains: Map<string, { status: string; records: DnsRecord[] }> = new Map();
   private counter = 0;
 
   async createDomain(subdomain: string): Promise<{ id: string; records: DnsRecord[] }> {
@@ -94,13 +94,13 @@ export class StubResendDomainService implements ResendDomainService {
       { type: 'MX', name: `${subdomain}.mail.phonetastic.ai`, value: 'feedback-smtp.us-east-1.amazonses.com', priority: 10 },
       { type: 'TXT', name: `${subdomain}.mail.phonetastic.ai`, value: 'v=spf1 include:amazonses.com ~all' },
     ];
-    this.domains.set(id, { verified: false, records });
+    this.domains.set(id, { status: 'not_started', records });
     return { id, records };
   }
 
   async triggerVerification(_domainId: string): Promise<void> {}
 
-  async checkVerification(domainId: string): Promise<boolean> {
-    return this.domains.get(domainId)?.verified ?? false;
+  async checkVerification(domainId: string): Promise<string> {
+    return this.domains.get(domainId)?.status ?? 'not_started';
   }
 }

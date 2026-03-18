@@ -268,7 +268,7 @@ export const subdomainFactory = Factory.define<SubdomainRow>(({ sequence }) => (
   companyId: 0,
   subdomain: `sub-${sequence}`,
   resendDomainId: null,
-  verified: false,
+  status: 'not_started',
   createdAt: new Date(),
 })).onCreate(async (sub) => {
   const [row] = await getTestDb().insert(subdomains).values({

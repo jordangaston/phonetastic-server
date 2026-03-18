@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import { eq } from 'drizzle-orm';
 import { subdomains } from '../db/schema/subdomains.js';
 import type { Database, Transaction } from '../db/index.js';
+import type { SubdomainStatus } from '../db/schema/enums.js';
 
 /**
  * Data access layer for company subdomains.
@@ -64,7 +65,7 @@ export class SubdomainRepository {
    * @param tx - Optional transaction to run within.
    * @returns The updated subdomain row, or undefined.
    */
-  async update(id: number, data: { resendDomainId?: string; verified?: boolean }, tx?: Transaction) {
+  async update(id: number, data: { resendDomainId?: string; status?: SubdomainStatus }, tx?: Transaction) {
     const [row] = await (tx ?? this.db).update(subdomains).set(data).where(eq(subdomains.id, id)).returning();
     return row;
   }

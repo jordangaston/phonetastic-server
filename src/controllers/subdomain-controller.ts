@@ -37,7 +37,7 @@ function formatSubdomain(s: any) {
     id: s.id,
     subdomain: s.subdomain,
     resend_domain_id: s.resendDomainId,
-    verified: s.verified,
+    status: s.status,
     created_at: s.createdAt,
   };
 }

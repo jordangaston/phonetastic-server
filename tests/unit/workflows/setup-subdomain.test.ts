@@ -79,28 +79,38 @@ describe('SetupSubdomain.triggerVerification', () => {
 });
 
 describe('SetupSubdomain.pollVerification', () => {
-  it('resolves when domain is verified', async () => {
-    const resendDomainService = { checkVerification: vi.fn().mockResolvedValue(true) };
+  it('returns status when domain reaches a terminal status', async () => {
+    const resendDomainService = { checkVerification: vi.fn().mockResolvedValue('verified') };
     mockContainer.container.resolve.mockReturnValueOnce(resendDomainService);
 
-    await expect(SetupSubdomain.pollVerification('dom-1')).resolves.toBeUndefined();
+    const result = await SetupSubdomain.pollVerification('dom-1');
+    expect(result).toBe('verified');
   });
 
-  it('throws when domain is not yet verified', async () => {
-    const resendDomainService = { checkVerification: vi.fn().mockResolvedValue(false) };
+  it('returns failed status as terminal', async () => {
+    const resendDomainService = { checkVerification: vi.fn().mockResolvedValue('failed') };
     mockContainer.container.resolve.mockReturnValueOnce(resendDomainService);
 
-    await expect(SetupSubdomain.pollVerification('dom-1')).rejects.toThrow('Domain not yet verified');
+    const result = await SetupSubdomain.pollVerification('dom-1');
+    expect(result).toBe('failed');
+  });
+
+  it('throws when domain status is not terminal', async () => {
+    const resendDomainService = { checkVerification: vi.fn().mockResolvedValue('pending') };
+    mockContainer.container.resolve.mockReturnValueOnce(resendDomainService);
+
+    await expect(SetupSubdomain.pollVerification('dom-1'))
+      .rejects.toThrow('Domain status is pending, waiting for terminal status');
   });
 });
 
-describe('SetupSubdomain.markVerified', () => {
-  it('sets verified to true', async () => {
+describe('SetupSubdomain.updateStatus', () => {
+  it('persists status on subdomain row', async () => {
     const subdomainRepo = { update: vi.fn() };
     mockContainer.container.resolve.mockReturnValueOnce(subdomainRepo);
 
-    await SetupSubdomain.markVerified(1);
+    await SetupSubdomain.updateStatus(1, 'verified');
 
-    expect(subdomainRepo.update).toHaveBeenCalledWith(1, { verified: true });
+    expect(subdomainRepo.update).toHaveBeenCalledWith(1, { status: 'verified' });
   });
 });
