@@ -312,7 +312,7 @@ export class ProcessInboundEmail {
     let fromAddress = latestInbound?.replyToAddress;
     if (!fromAddress) {
       const company = await companyRepo.findById(companyId);
-      fromAddress = company?.emailAddresses?.[0] ?? 'noreply@mail.phonetastic.ai';
+      fromAddress = company?.emails?.[0] ?? 'noreply@mail.phonetastic.ai';
     }
 
     const result = await resendService.sendEmail({

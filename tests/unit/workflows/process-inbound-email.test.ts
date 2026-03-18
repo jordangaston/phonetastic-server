@@ -419,7 +419,7 @@ describe('ProcessInboundEmail.sendReply', () => {
     expect(chatRepo.update).toHaveBeenCalledWith(1, expect.objectContaining({ updatedAt: expect.any(Date) }));
   });
 
-  it('falls back to company emailAddresses when no replyToAddress', async () => {
+  it('falls back to company emails when no replyToAddress', async () => {
     const chatRepo = {
       findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, companyId: 5, subject: 'Q' }),
       update: vi.fn(),
@@ -430,7 +430,7 @@ describe('ProcessInboundEmail.sendReply', () => {
       ]),
       create: vi.fn(),
     };
-    const companyRepo = { findById: vi.fn().mockResolvedValue({ id: 5, emailAddresses: ['support@acme.com'] }) };
+    const companyRepo = { findById: vi.fn().mockResolvedValue({ id: 5, emails: ['support@acme.com'] }) };
     const endUserRepo = { findById: vi.fn().mockResolvedValue({ id: 2, email: 'user@test.com' }) };
     const botRepo = { findByUserId: vi.fn().mockResolvedValue({ id: 10 }) };
     const resendService = {

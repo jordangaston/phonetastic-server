@@ -43,7 +43,6 @@ export class CompanyService {
         name: companyData?.name ?? new URL(siteUrl).hostname,
         businessType: businessType ?? undefined,
         website: siteUrl,
-        email: companyData?.email ?? undefined,
       }, tx);
 
       if (companyData?.address) {

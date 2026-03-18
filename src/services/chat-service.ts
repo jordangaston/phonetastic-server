@@ -248,7 +248,7 @@ export class ChatService {
       const subRow = await this.subdomainRepo.findBySubdomain(subdomain);
       if (subRow) {
         const company = await this.companyRepo.findById(subRow.companyId);
-        const replyToAddress = this.pickReplyToAddress(company?.emailAddresses ?? [], emailData.to);
+        const replyToAddress = this.pickReplyToAddress(company?.emails ?? [], emailData.to);
         return { companyId: subRow.companyId, replyToAddress };
       }
     }
@@ -256,7 +256,7 @@ export class ChatService {
     const toAddress = emailData.to[0];
     const company = await this.companyRepo.findByEmailAddress(toAddress);
     if (company) {
-      const replyToAddress = this.pickReplyToAddress(company.emailAddresses ?? [], emailData.to);
+      const replyToAddress = this.pickReplyToAddress(company.emails ?? [], emailData.to);
       return { companyId: company.id, replyToAddress };
     }
 

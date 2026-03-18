@@ -53,7 +53,7 @@ describe('Resend Webhook Controller', () => {
 
   it('persists inbound email and creates chat', async () => {
     const company = await companyFactory.create({ name: 'Webhook Co' });
-    await getTestDb().update(companies).set({ emailAddresses: ['webhook@mail.phonetastic.ai'] }).where(eq(companies.id, company.id));
+    await getTestDb().update(companies).set({ emails: ['webhook@mail.phonetastic.ai'] }).where(eq(companies.id, company.id));
 
     getStubResendService().setReceivedEmail('email-1', {
       from: 'customer@example.com',
@@ -86,7 +86,7 @@ describe('Resend Webhook Controller', () => {
 
   it('is idempotent for duplicate email_id', async () => {
     const company = await companyFactory.create({ name: 'Dedup Co' });
-    await getTestDb().update(companies).set({ emailAddresses: ['dedup@mail.phonetastic.ai'] }).where(eq(companies.id, company.id));
+    await getTestDb().update(companies).set({ emails: ['dedup@mail.phonetastic.ai'] }).where(eq(companies.id, company.id));
 
     getStubResendService().setReceivedEmail('email-dup', {
       from: 'customer@example.com',

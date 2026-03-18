@@ -51,14 +51,12 @@ export const companyFactory = Factory.define<CompanyRow>(({ sequence }) => ({
   name: `Test Company ${sequence}`,
   businessType: null,
   website: null,
-  email: null,
-  emailAddresses: [],
+  emails: [],
 })).onCreate(async (company) => {
   const [row] = await getTestDb().insert(companies).values({
     name: company.name,
     businessType: company.businessType ?? undefined,
     website: company.website ?? undefined,
-    email: company.email ?? undefined,
   }).returning();
   return row;
 });

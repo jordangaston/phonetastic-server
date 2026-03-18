@@ -22,7 +22,7 @@ describe('CompanyService', () => {
 
   beforeEach(() => {
     db = { transaction: vi.fn().mockImplementation(async (cb: any) => cb({})) };
-    companyRepo = { create: vi.fn().mockResolvedValue({ id: 42, name: 'Acme Corp', website: 'https://acme.com', email: 'info@acme.com', businessType: null }) };
+    companyRepo = { create: vi.fn().mockResolvedValue({ id: 42, name: 'Acme Corp', website: 'https://acme.com', businessType: null }) };
     addressRepo = { createMany: vi.fn().mockResolvedValue([]) };
     operationHourRepo = { createMany: vi.fn().mockResolvedValue([]) };
     phoneNumberRepo = { createMany: vi.fn().mockResolvedValue([]) };
@@ -35,7 +35,7 @@ describe('CompanyService', () => {
       const company = await service.create(makeCompanyData(), null, 'https://acme.com', 1);
 
       expect(companyRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Acme Corp', website: 'https://acme.com', email: 'info@acme.com' }),
+        expect.objectContaining({ name: 'Acme Corp', website: 'https://acme.com' }),
         expect.any(Object),
       );
       expect(userRepo.update).toHaveBeenCalledWith(1, { companyId: 42 }, expect.any(Object));

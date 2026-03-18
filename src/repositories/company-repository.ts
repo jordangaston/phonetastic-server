@@ -17,7 +17,7 @@ export class CompanyRepository {
    * @param tx - Optional transaction to run within.
    * @returns The created company row.
    */
-  async create(data: { name: string; businessType?: string; website?: string; email?: string }, tx?: Transaction) {
+  async create(data: { name: string; businessType?: string; website?: string }, tx?: Transaction) {
     const [row] = await (tx ?? this.db).insert(companies).values(data).returning();
     return row;
   }
@@ -59,7 +59,7 @@ export class CompanyRepository {
   }
 
   /**
-   * Finds a company whose email_addresses array contains the given address.
+   * Finds a company whose emails array contains the given address.
    *
    * @param address - The email address to search for.
    * @returns The company row, or undefined.
@@ -68,7 +68,7 @@ export class CompanyRepository {
     const [row] = await this.db
       .select()
       .from(companies)
-      .where(sql`${companies.emailAddresses} @> ARRAY[${address}]::varchar[]`);
+      .where(sql`${companies.emails} @> ARRAY[${address}]::varchar[]`);
     return row;
   }
 
@@ -80,7 +80,7 @@ export class CompanyRepository {
    * @param tx - Optional transaction to run within.
    * @returns The updated company row, or undefined.
    */
-  async update(id: number, data: { name?: string; businessType?: string; website?: string; email?: string; emailAddresses?: string[] }, tx?: Transaction) {
+  async update(id: number, data: { name?: string; businessType?: string; website?: string; emails?: string[] }, tx?: Transaction) {
     const [row] = await (tx ?? this.db).update(companies).set(data).where(eq(companies.id, id)).returning();
     return row;
   }

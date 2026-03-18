@@ -76,7 +76,7 @@ describe('ChatService', () => {
       };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
       subdomainRepo.findBySubdomain.mockResolvedValue({ id: 1, companyId: 5 });
-      companyRepo.findById.mockResolvedValue({ id: 5, emailAddresses: ['support@acme.com'] });
+      companyRepo.findById.mockResolvedValue({ id: 5, emails: ['support@acme.com'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue(null);
       endUserRepo.create.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue(null);
@@ -93,7 +93,7 @@ describe('ChatService', () => {
     it('falls back to companyRepo.findByEmailAddress when no subdomain match', async () => {
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
       subdomainRepo.findBySubdomain.mockResolvedValue(null);
-      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emailAddresses: ['acme@mail.phonetastic.ai'] });
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['acme@mail.phonetastic.ai'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue(null);
       endUserRepo.create.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue(null);
@@ -114,7 +114,7 @@ describe('ChatService', () => {
       };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
       subdomainRepo.findBySubdomain.mockResolvedValue(null);
-      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emailAddresses: ['support@acme.com', 'billing@acme.com'] });
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['support@acme.com', 'billing@acme.com'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue(null);
       endUserRepo.create.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue(null);
@@ -137,7 +137,7 @@ describe('ChatService', () => {
       };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
       subdomainRepo.findBySubdomain.mockResolvedValue({ id: 1, companyId: 5 });
-      companyRepo.findById.mockResolvedValue({ id: 5, emailAddresses: [] });
+      companyRepo.findById.mockResolvedValue({ id: 5, emails: [] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue({ id: 20, subject: 'test' });
       emailRepo.create.mockResolvedValue({ id: 30 });
@@ -155,7 +155,7 @@ describe('ChatService', () => {
       const emailDataWithReply = { ...emailData, inReplyTo: '<parent@example.com>' };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
       subdomainRepo.findBySubdomain.mockResolvedValue(null);
-      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emailAddresses: ['acme@mail.phonetastic.ai'] });
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['acme@mail.phonetastic.ai'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue({ id: 100 });
       emailRepo.findByMessageId.mockResolvedValue({ id: 5, chatId: 20 });
       chatRepo.findById.mockResolvedValue({ id: 20, subject: 'Existing' });
@@ -174,7 +174,7 @@ describe('ChatService', () => {
       };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
       subdomainRepo.findBySubdomain.mockResolvedValue(null);
-      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emailAddresses: ['acme@mail.phonetastic.ai'] });
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['acme@mail.phonetastic.ai'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue({ id: 20, subject: 'test' });
       emailRepo.create.mockResolvedValue({ id: 32 });

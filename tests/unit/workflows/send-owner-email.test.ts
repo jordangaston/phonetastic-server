@@ -93,11 +93,11 @@ describe('SendOwnerEmail.loadContext', () => {
     });
   });
 
-  it('falls back to company emailAddresses when no replyToAddress', async () => {
+  it('falls back to company emails when no replyToAddress', async () => {
     setupRepos({
       email: { id: 1, chatId: 10, bodyText: 'Reply' },
       chat: { id: 10, endUserId: 2, companyId: 5, subject: null },
-      company: { id: 5, emailAddresses: ['billing@acme.com'] },
+      company: { id: 5, emails: ['billing@acme.com'] },
       endUser: { id: 2, email: 'user@test.com' },
       allEmails: [{ direction: 'inbound', replyToAddress: null, messageId: null, referenceIds: null }],
     });
@@ -108,11 +108,11 @@ describe('SendOwnerEmail.loadContext', () => {
     expect(ctx!.replyTo).toBe('billing@acme.com');
   });
 
-  it('falls back to noreply when no replyToAddress and no company emailAddresses', async () => {
+  it('falls back to noreply when no replyToAddress and no company emails', async () => {
     setupRepos({
       email: { id: 1, chatId: 10, bodyText: 'Reply' },
       chat: { id: 10, endUserId: 2, companyId: 5, subject: null },
-      company: { id: 5, emailAddresses: [] },
+      company: { id: 5, emails: [] },
       endUser: { id: 2, email: 'user@test.com' },
       allEmails: [],
     });
