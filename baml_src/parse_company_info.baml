@@ -14,7 +14,7 @@ class CompanyInfo {
 }
 
 function ParseCompanyInfo(text: string) -> CompanyInfo {
-  client GPT5Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <instructions>

@@ -21,7 +21,7 @@ function EmailAgentTurn(
   history: ChatHistoryEntry[],
   chat_summary: string?
 ) -> CompanyInfoTool | ReplyTool {
-  client GPT4_1Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     You are an AI email assistant for {{ company_name }}.

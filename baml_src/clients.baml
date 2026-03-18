@@ -7,30 +7,12 @@ client<llm> GPT5 {
   }
 }
 
-client<llm> GPT5Nano {
-  provider openai
+client<llm> GeminiFlash {
+  provider google-ai
   retry_policy Exponential
   options {
-    model "gpt-5-nano"
-    api_key env.OPENAI_API_KEY
-  }
-}
-
-client<llm> GPT4_1Nano {
-  provider openai
-  retry_policy Exponential
-  options {
-    model "gpt-4.1-nano"
-    api_key env.OPENAI_API_KEY
-  }
-}
-
-client<llm> GPT5Mini {
-  provider openai
-  retry_policy Exponential
-  options {
-    model "gpt-5-mini"
-    api_key env.OPENAI_API_KEY
+    model "gemini-3-flash-preview"
+    api_key env.GOOGLE_API_KEY
   }
 }
 

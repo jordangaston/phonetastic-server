@@ -5,7 +5,7 @@ class OperationHour {
 }
 
 function ParseOperationHours(text: string) -> OperationHour[] {
-  client GPT4_1Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <instructions>

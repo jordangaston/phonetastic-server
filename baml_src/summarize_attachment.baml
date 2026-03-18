@@ -1,5 +1,5 @@
 function SummarizeImageAttachment(file: image, user_query: string) -> string {
-  client GPT4_1Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     You are an attachment summarization assistant. Given an image attachment and the user's email message, produce a concise summary (2-4 sentences) that describes:
@@ -16,7 +16,7 @@ function SummarizeImageAttachment(file: image, user_query: string) -> string {
 }
 
 function SummarizeTextAttachment(file_content: string, user_query: string) -> string {
-  client GPT4_1Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     You are an attachment summarization assistant. Given the text content of an email attachment and the user's email message, produce a concise summary (2-4 sentences) that describes:

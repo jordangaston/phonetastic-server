@@ -1,5 +1,5 @@
 function SummarizeChat(messages: string, existing_summary: string?) -> string {
-  client GPT4_1Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     You are a conversation summarization assistant. Given an email conversation between a customer and support, produce a concise summary (2-4 sentences) that captures: the customer's main issue, key information exchanged, current status, and any pending actions.

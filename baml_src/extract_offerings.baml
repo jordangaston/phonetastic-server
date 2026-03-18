@@ -12,7 +12,7 @@ class ExtractedOffering {
 }
 
 function ExtractOfferings(pageContent: string) -> ExtractedOffering[] {
-  client GPT5Mini
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <instructions>

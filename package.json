@@ -46,7 +46,6 @@
     "edge.js": "^6.5.0",
     "eta": "^4.5.1",
     "fastify": "^5.2.0",
-    "fishery": "^2.4.0",
     "google-auth-library": "^10.5.0",
     "google-libphonenumber": "^3.2.44",
     "jsonld": "^9.0.0",
@@ -73,6 +72,7 @@
     "drizzle-kit": "^0.30.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "fishery": "^2.4.0"
   }
 }

@@ -10,7 +10,7 @@ class RankedPages {
 }
 
 function RankPages(pages: PageSummary[], businessType: string) -> RankedPages {
-  client GPT5Mini
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <instructions>

@@ -4,7 +4,7 @@ class ExtractedFaq {
 }
 
 function ExtractFAQs(pageContent: string) -> ExtractedFaq[] {
-  client GPT5Mini
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <instructions>

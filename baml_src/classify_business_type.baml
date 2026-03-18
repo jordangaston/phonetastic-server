@@ -1,5 +1,5 @@
 function ClassifyBusinessType(strippedHtml: string) -> string? {
-  client GPT5Nano
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <instructions>
