@@ -38,13 +38,21 @@ sequenceDiagram
     rect rgb(255, 248, 240)
     note over C,DB: Persist Email + Attachment Metadata
     C->>CS: receiveInboundEmail(emailData)
-    CS->>DB: Find email address by to address
-    DB-->>CS: EmailAddress + companyId
+    note over CS: Extract subdomain from forwardedTo or to address
+    CS->>DB: subdomainRepo.findBySubdomain(subdomain)
+    alt Subdomain found
+        DB-->>CS: Subdomain + companyId
+    else Fallback
+        CS->>DB: companyRepo.findByEmailAddress(to)
+        DB-->>CS: Company
+    end
+    CS->>DB: Resolve replyTo from company.email_addresses matching to[]
+    DB-->>CS: replyToAddress
     CS->>DB: Find or create end user by sender email + companyId
     DB-->>CS: EndUser
     CS->>DB: Find open chat or create new (check in_reply_to for threading)
     DB-->>CS: Chat
-    CS->>DB: TX: Insert email, insert attachment metadata (no content yet), set chat subject
+    CS->>DB: TX: Insert email (fromAddress, toAddresses, forwardedTo, replyToAddress), insert attachment metadata (no content yet), set chat subject
     end
 
     rect rgb(240, 255, 240)
@@ -56,6 +64,12 @@ sequenceDiagram
 ~~~
 
 The webhook handler persists email and attachment metadata immediately, then returns 200. All downstream processing (attachment download, bot response) happens in the DBOS workflow. This ensures no data is lost even if attachment download or bot processing fails.
+
+**Company resolution:** The `forwardedTo` field is extracted from `X-Forwarded-To` or `Delivered-To` headers (priority order) in `ResendServiceImpl.getReceivedEmail()`. Subdomain routing is tried first — the subdomain is extracted from `forwardedTo` (if present) or the first `to` address, and looked up via `subdomainRepo.findBySubdomain()`. If no subdomain match is found, the system falls back to `companyRepo.findByEmailAddress()`, which searches the `email_addresses` text array on the companies table.
+
+**replyTo resolution:** The `replyToAddress` is determined by finding the entry in `company.email_addresses` that matches one of the inbound email's `to[]` addresses. This address is stored on the email row and used as the `from` address when the bot or owner sends a reply.
+
+**ReceivedEmail interface:** The `ReceivedEmail` type returned by `ResendServiceImpl.getReceivedEmail()` includes a `forwardedTo?: string` field, extracted from `X-Forwarded-To` or `Delivered-To` headers (priority order). The `from`, `to`, and `replyTo` fields carry the raw email addresses from Resend.
 
 ## Store Attachment — Sub-workflow of ProcessInboundEmail
 
@@ -151,6 +165,7 @@ sequenceDiagram
 
     rect rgb(240, 240, 255)
     note over W,DB: Step 6: Send Reply
+    note over W: from = email.replyToAddress ?? company.email_addresses[0]
     W->>DB: sendEmail(from, to, text, In-Reply-To, References)
     DB-->>W: { id }
     W->>DB: Insert outbound email (sender: bot)
@@ -274,7 +289,8 @@ sequenceDiagram
 
     rect rgb(255, 248, 240)
     note over W,RS: Step 2: Send Email
-    W->>DB: Load email, chat, latest message (for threading headers)
+    W->>DB: Load email, chat, latest inbound email (for threading headers)
+    note over W: from = latestInbound.replyToAddress ?? company.email_addresses[0]
     W->>RS: sendEmail(from, to, text, In-Reply-To, References, attachments)
     RS-->>W: { id }
     W->>DB: Update email status = 'sent'
@@ -289,24 +305,57 @@ sequenceDiagram
 
 ## Enable Email Support — Implements UC-E1: Enable Email Support
 
+Email support is enabled in two steps:
+
+1. **Add email addresses** — The owner updates the company via `PATCH /v1/companies/:id` with an `email_addresses` array. These are the addresses the company receives customer emails at (e.g., `support@acme.com`). The array is stored directly on the companies table.
+2. **Create a subdomain** — The owner calls `POST /v1/subdomains` to create a routing subdomain. This returns 202 and enqueues a DBOS workflow to set up DNS. The client polls `GET /v1/subdomains` until `verified` is true.
+
 ~~~mermaid
 sequenceDiagram
     participant O as Owner
-    participant C as EmailAddressController
-    participant S as EmailAddressService
+    participant C as CompanyController
+    participant CS as CompanyService
     participant DB as Database
 
-    O->>C: POST /v1/email-addresses
-    C->>S: createEmailAddress(userId)
-    S->>DB: Load user's company
-    S->>DB: Check company has no existing email address
-    note over S: Generate slug from company name
-    S->>DB: Check slug uniqueness, append suffix if needed
-    S->>DB: Insert email_addresses row
-    DB-->>S: EmailAddress
-    S-->>C: EmailAddress
-    C-->>O: 201 { email_address }
+    rect rgb(240, 248, 255)
+    note over O,DB: Step 1: Add Email Addresses
+    O->>C: PATCH /v1/companies/:id { email_addresses }
+    C->>CS: updateCompany(userId, companyId, { email_addresses })
+    CS->>DB: Update company.email_addresses
+    DB-->>CS: Company
+    CS-->>C: Company
+    C-->>O: 200 { company }
+    end
 ~~~
+
+~~~mermaid
+sequenceDiagram
+    participant O as Owner
+    participant C as SubdomainController
+    participant S as SubdomainService
+    participant DB as Database
+
+    rect rgb(255, 248, 240)
+    note over O,DB: Step 2: Create Subdomain
+    O->>C: POST /v1/subdomains
+    C->>S: createSubdomain(userId)
+    S->>DB: Load user's company
+    note over S: Generate subdomain (adjective-noun-number pattern)
+    S->>DB: Insert subdomains row
+    DB-->>S: Subdomain
+    S->>S: Enqueue SetupSubdomain DBOS workflow
+    S-->>C: Subdomain (verified: false)
+    C-->>O: 202 { subdomain }
+    end
+
+    rect rgb(240, 255, 240)
+    note over O,C: Poll for verification
+    O->>C: GET /v1/subdomains
+    C-->>O: 200 { subdomains } (check verified field)
+    end
+~~~
+
+The subdomain is generated using a random human-readable pattern (adjective-noun-number, e.g., `bright-falcon-42`) with a uniqueness retry loop. The SetupSubdomain DBOS workflow handles DNS provisioning asynchronously (see "Setup Subdomain DNS" below).
 
 ## Toggle Bot for Chat — Implements UC-E6: Owner Toggles Bot for Chat
 
@@ -342,6 +391,54 @@ sequenceDiagram
     LLM-->>W: Updated summary
     W->>DB: Update chat.summary
 ~~~
+
+## Setup Subdomain DNS — DBOS Workflow
+
+~~~mermaid
+sequenceDiagram
+    participant W as SetupSubdomain Workflow
+    participant RD as ResendDomainService
+    participant GD as GoDaddyDnsService
+    participant DB as Database
+
+    rect rgb(240, 248, 255)
+    note over W,RD: Step 1: Create Resend Domain
+    W->>RD: createResendDomain(subdomain)
+    RD-->>W: { id, records[] }
+    end
+
+    rect rgb(255, 248, 240)
+    note over W,DB: Step 2: Store Resend Domain ID
+    W->>DB: Update subdomain.resend_domain_id = domainId
+    end
+
+    rect rgb(240, 255, 240)
+    note over W,GD: Step 3: Configure DNS Records
+    W->>GD: configureDns(records)
+    GD-->>W: OK
+    end
+
+    rect rgb(248, 248, 240)
+    note over W,RD: Step 4: Trigger Verification
+    W->>RD: triggerVerification(domainId)
+    RD-->>W: OK
+    end
+
+    rect rgb(255, 240, 240)
+    note over W,RD: Step 5: Poll Verification (max 10 retries, exponential backoff)
+    loop Until verified or max retries
+        W->>RD: checkVerification(domainId)
+        RD-->>W: verified: boolean
+    end
+    end
+
+    rect rgb(240, 240, 255)
+    note over W,DB: Step 6: Mark Verified
+    W->>DB: Update subdomain.verified = true
+    end
+~~~
+
+All operations are `@DBOS.step()`. No child workflows from steps. No bare DB access in workflow body. The verification poll uses bounded retries (max 10) with exponential backoff to avoid hammering the Resend API.
 
 ## List Chats — Implements UC-E7: List Chats
 
@@ -379,38 +476,17 @@ sequenceDiagram
     C-->>O: 200 { emails, page_token }
 ~~~
 
-## List Email Addresses — Implements UC-E2: List Company Email Addresses
-
-~~~mermaid
-sequenceDiagram
-    participant O as Owner
-    participant C as EmailAddressController
-    participant S as EmailAddressService
-    participant DB as Database
-
-    O->>C: GET /v1/email-addresses
-    C->>S: listEmailAddresses(userId)
-    S->>DB: Load user's company
-    S->>DB: SELECT email_addresses WHERE company_id = ?
-    DB-->>S: EmailAddress[]
-    S-->>C: EmailAddress[]
-    C-->>O: 200 { email_addresses }
-~~~
-
 ---
 
 # Tables
 
-## email_addresses
+## companies — Modified
 
-Stores email identities owned by companies. [UC-E1, UC-E2]
+Add email_addresses column. [UC-E1]
 
-| Column | Type | Constraints | Notes |
+| Column | Type | Change | Notes |
 |---|---|---|---|
-| id | serial | PK | |
-| company_id | integer | FK → companies.id, NOT NULL | |
-| address | varchar(255) | NOT NULL, UNIQUE | e.g., `acme@mail.phonetastic.ai` |
-| created_at | timestamp | NOT NULL, DEFAULT now() | |
+| email_addresses | varchar(255)[] | ADD, DEFAULT '{}' | Company's email addresses for receiving customer emails |
 
 ## chats
 
@@ -426,7 +502,6 @@ A conversation thread between a company and an end user. [UC-E3, UC-E5, UC-E6, U
 | bot_enabled | boolean | NOT NULL, DEFAULT true | |
 | subject | varchar(1024) | | Set from first email's subject line |
 | summary | text | | AI-generated conversation summary [UC-E9] |
-| email_address_id | integer | FK → email_addresses.id | The company email address for this chat |
 | created_at | timestamp | NOT NULL, DEFAULT now() | |
 | updated_at | timestamp | NOT NULL, DEFAULT now() | |
 
@@ -449,6 +524,10 @@ Individual email messages within a chat. [UC-E3, UC-E4, UC-E5, UC-E8]
 | message_id | varchar(512) | | RFC Message-ID header |
 | in_reply_to | varchar(512) | | RFC Message-ID of parent [UC-E3 ext 7a] |
 | reference_ids | text[] | | Full thread chain of Message-IDs |
+| from_address | varchar(512) | | Sender email address from Resend |
+| to_addresses | text[] | | Recipient email addresses from Resend |
+| forwarded_to | varchar(512) | | From X-Forwarded-To or Delivered-To header |
+| reply_to_address | varchar(512) | | Entry from company.email_addresses matching a to address; used as from for replies |
 | status | email_status | NOT NULL, DEFAULT 'received' | Inbound: 'received'. Outbound: 'pending' → 'sent' or 'failed' |
 | created_at | timestamp | NOT NULL, DEFAULT now() | |
 
@@ -485,6 +564,19 @@ Records every tool call made by the bot during the agent loop, preserving both i
 | output | jsonb | NOT NULL | The tool execution result |
 | created_at | timestamp | NOT NULL, DEFAULT now() | Used for chronological ordering in chat history |
 
+## subdomains
+
+Stores company email subdomains for inbound email routing. Distinct from the `email_addresses` array on companies — stores the DNS domain itself with verification state. A company can have multiple subdomains (initially auto-generated, later custom). [UC-E1]
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| id | serial | PK | |
+| company_id | integer | FK → companies.id, NOT NULL | |
+| subdomain | varchar(63) | NOT NULL, UNIQUE | e.g., `bright-falcon-42` |
+| resend_domain_id | varchar(255) | | External ID from Resend domain creation |
+| verified | boolean | NOT NULL, DEFAULT false | Set true after DNS verification |
+| created_at | timestamp | NOT NULL, DEFAULT now() | |
+
 ## end_users — Modified
 
 Add email column, make phone_number_id nullable. [UC-E3]
@@ -516,70 +608,39 @@ Add email column, make phone_number_id nullable. [UC-E3]
 | end_users | idx_end_users_email_company | email, company_id | Email lookup |
 | attachments | idx_attachments_email_id | email_id | Attachment listing |
 | bot_tool_calls | idx_bot_tool_calls_chat_id | chat_id, created_at ASC | Chat history reconstruction |
+| subdomains | idx_subdomains_subdomain | subdomain | Subdomain lookup for routing |
+| subdomains | idx_subdomains_company_id | company_id | List subdomains by company |
 
 ---
 
 # APIs
 
-## Create Email Address `POST /v1/email-addresses`
+## Update Company `PATCH /v1/companies/:id`
 
-Creates a Phonetastic email address for the authenticated user's company. [UC-E1]
+Updates company fields, including `email_addresses`. [UC-E1]
 
 ### Request
 
 - Headers
     - content-type: `application/json`
     - authorization: `Bearer <jwt>`
-- Body: empty
-
-### Success Response `201`
-
-- Headers
-    - content-type: `application/json`
 - Body
-    - email_address: object
-        - id: integer
-        - company_id: integer
-        - address: string
-        - created_at: string (ISO 8601)
-
-### Already Exists Response `409`
-
-- Headers
-    - content-type: `application/json`
-- Body
-    - error: object
-        - code: 409
-        - message: "Company already has an email address"
-
-### No Company Response `400`
-
-- Headers
-    - content-type: `application/json`
-- Body
-    - error: object
-        - code: 400
-        - message: "User has no company"
-
-## List Email Addresses `GET /v1/email-addresses`
-
-Lists email addresses for the authenticated user's company. [UC-E2]
-
-### Request
-
-- Headers
-    - authorization: `Bearer <jwt>`
+    - company: object
+        - email_addresses: string[] (optional) — replaces the full array
 
 ### Success Response `200`
 
 - Headers
     - content-type: `application/json`
 - Body
-    - email_addresses: array
-        - id: integer
-        - company_id: integer
-        - address: string
-        - created_at: string (ISO 8601)
+    - company: object (full company fields including email_addresses)
+
+### Not Found Response `404`
+
+- Body
+    - error: object
+        - code: 404
+        - message: "Company not found"
 
 ## Resend Webhook `POST /v1/resend/webhook`
 
@@ -745,6 +806,70 @@ Owner sends a reply in a chat. Async — persists the email with `status = 'pend
         - code: 404
         - message: "Chat not found"
 
+## Create Subdomain `POST /v1/subdomains`
+
+Creates a subdomain for the authenticated user's company and enqueues DNS setup. Returns 202 — the subdomain is not immediately usable. The client polls `GET /v1/subdomains` until the `verified` field is `true`.
+
+### Request
+
+- Headers
+    - content-type: `application/json`
+    - authorization: `Bearer <jwt>`
+- Body: empty
+
+### Accepted Response `202`
+
+- Headers
+    - content-type: `application/json`
+- Body
+    - subdomain: object
+        - id: integer
+        - company_id: integer
+        - subdomain: string
+        - verified: boolean (initially false)
+        - created_at: string (ISO 8601)
+
+Side effect: enqueues SetupSubdomain DBOS workflow.
+
+### No Company Response `400`
+
+- Headers
+    - content-type: `application/json`
+- Body
+    - error: object
+        - code: 400
+        - message: "User has no company"
+
+### Max Subdomains Response `409`
+
+- Headers
+    - content-type: `application/json`
+- Body
+    - error: object
+        - code: 409
+        - message: "Company already has max subdomains"
+
+## List Subdomains `GET /v1/subdomains`
+
+Lists subdomains for the authenticated user's company.
+
+### Request
+
+- Headers
+    - authorization: `Bearer <jwt>`
+
+### Success Response `200`
+
+- Headers
+    - content-type: `application/json`
+- Body
+    - subdomains: array
+        - id: integer
+        - company_id: integer
+        - subdomain: string
+        - verified: boolean
+        - created_at: string (ISO 8601)
+
 ---
 
 # Testing
@@ -753,8 +878,7 @@ Owner sends a reply in a chat. Async — persists the email with `status = 'pend
 
 | Use Case | Type | Unit | Integration |
 |---|---|---|---|
-| UC-E1: Enable Email Support | Flow | x | x |
-| UC-E2: List Email Addresses | Flow | | x |
+| UC-E1: Update Company Email Addresses | Flow | x | x |
 | UC-E3: Receive Inbound Email | Flow | x | x |
 | UC-E4: Bot Responds to Email | Flow | x | |
 | UC-E5: Owner Replies to Email | Flow | x | x |
@@ -762,6 +886,11 @@ Owner sends a reply in a chat. Async — persists the email with `status = 'pend
 | UC-E7: List Chats | Flow | | x |
 | UC-E8: View Chat Emails | Flow | | x |
 | UC-E9: Update Chat Summary | Flow | x | |
+| Subdomain routing (forwarded) | Flow | x | x |
+| Subdomain routing (direct) | Flow | x | x |
+| Setup Subdomain DNS | Workflow | x | |
+| Create Subdomain | Flow | x | x |
+| List Subdomains | Flow | | x |
 
 ## Test Approach
 
@@ -769,14 +898,19 @@ Owner sends a reply in a chat. Async — persists the email with `status = 'pend
 
 | Component | What to Test |
 |---|---|
-| EmailAddressService | Slug generation, uniqueness enforcement, company validation |
-| ChatService.receiveInboundEmail | End user find/create, chat find/create, dedup by external_email_id, bot enqueue decision, in_reply_to threading |
+| CompanyService | Email addresses array update, validation |
+| ChatService.receiveInboundEmail | End user find/create, chat find/create, dedup by external_email_id, bot enqueue decision, in_reply_to threading, subdomain routing, forwardedTo handling, replyTo derivation, fallback to company email_addresses array |
 | ChatService.sendOwnerReply | Threading header construction, bot disable side effect, attachment upload to Tigris |
 | ChatService.findOrCreateChat | Open chat reuse, closed chat creates new, in-reply-to message lookup |
 | ResendService | Request construction, response parsing, signature verification |
 | ProcessInboundEmail workflow | Attachment download+storage step, attachment failure handling, agent tool loop, precanned error on LLM failure, precanned error when reply tool not called |
 | Chat history reconstruction | Chronological merge of emails + tool calls, correct role/label assignment, BAML-aligned tool call formatting, tool_call_id linking |
 | UpdateChatSummary workflow | Summary generation from email history, existing summary inclusion |
+| SubdomainService | Random subdomain generation, uniqueness retry |
+| SubdomainUtils | Subdomain extraction from email addresses, forwardedTo priority |
+| SetupSubdomain workflow | Step ordering, DNS failure handling, verification polling |
+| ResendDomainService | Domain creation, verification request/response |
+| GoDaddyDnsService | DNS record addition |
 
 Mock repositories and ResendService. No database.
 
@@ -784,9 +918,10 @@ Mock repositories and ResendService. No database.
 
 | Route | Scenarios |
 |---|---|
-| POST /v1/email-addresses | Success (201), duplicate (409), no company (400) |
-| GET /v1/email-addresses | Returns company's addresses, empty list |
-| POST /v1/resend/webhook | Valid email → email persisted, duplicate → idempotent (200), invalid sig → 401, unknown address → 200 no-op |
+| PATCH /v1/companies/:id | Update email_addresses array, 404 for wrong company |
+| POST /v1/subdomains | Success (202), no company (400) |
+| GET /v1/subdomains | Returns company's subdomains |
+| POST /v1/resend/webhook | Valid email → email persisted, duplicate → idempotent (200), invalid sig → 401, unknown address → 200 no-op, routes via subdomain, routes via forwardedTo header |
 | GET /v1/chats | Pagination, channel filter, empty list |
 | GET /v1/chats/:id/emails | Pagination, chronological order, includes attachment metadata |
 | POST /v1/chats/:id/emails | Owner reply persisted + bot disabled, with attachments, 404 for wrong company |
@@ -860,7 +995,7 @@ scripts/email-test chats --company "Acme Auto"
 1. `scripts/email-test` delegates to `npx tsx src/cli.ts` with all arguments.
 2. `src/cli.ts` calls `setupContainer()` to initialize the DI container with the production database.
 3. The `arg` parser extracts the subcommand and flags.
-4. Each command resolves dependencies from the container (CompanyRepository, EmailAddressRepository, EmailRepository, ChatRepository).
+4. Each command resolves dependencies from the container (CompanyRepository, EmailRepository, ChatRepository).
 5. DB lookups use repository methods directly — the same code paths as the server.
 6. Gmail sending delegates to `gws` via `child_process.execFileSync` with structured JSON output.
 7. `process.exit(0)` ensures the Node process terminates after the command completes (Drizzle's connection pool does not auto-close).
@@ -901,7 +1036,6 @@ To test the email bot end-to-end, use `scripts/email-test`:
 - `StubStorageService` — in-memory storage for attachment uploads/downloads
 - `emailFactory` — Fishery factory for emails table rows
 - `chatFactory` — Fishery factory for chats table rows
-- `emailAddressFactory` — Fishery factory for email_addresses table rows
 - `attachmentFactory` — Fishery factory for attachments table rows
 - `botToolCallFactory` — Fishery factory for bot_tool_calls table rows
 - `src/cli.ts` — TypeScript CLI entrypoint for end-to-end bot testing
@@ -916,10 +1050,13 @@ To test the email bot end-to-end, use `scripts/email-test`:
 | Order | Type | Description | Backwards-Compatible |
 |---|---|---|---|
 | 1 | schema | Create enums: chat_channel, chat_status, email_direction | yes |
-| 2 | schema | Create tables: email_addresses, chats, emails, attachments | yes |
+| 2 | schema | Create tables: chats, emails, attachments | yes |
 | 3 | schema | Add email column to end_users | yes |
 | 4 | schema | Make phone_number_id nullable on end_users | yes |
 | 5 | schema | Create table: bot_tool_calls | yes |
+| 6 | schema | Add email_addresses column to companies | yes |
+| 7 | schema | Add from_address, to_addresses, forwarded_to, reply_to_address columns to emails | yes |
+| 8 | schema | Create table: subdomains | yes |
 
 ## Deploy Sequence
 
@@ -1063,6 +1200,52 @@ Persisting tool calls in a `bot_tool_calls` table (with `input` and `output` as 
 - **Store the full OpenAI messages array as JSON:** Couples persistence to the provider's wire format. If we switch providers or BAML changes its rendering, stored history becomes incompatible.
 - **Don't persist tool calls; re-derive from context:** Loses information (FAQ answers, search results). Forces the bot to re-call tools it already used. Wastes tokens and latency.
 
+## Subdomain routing with backward-compatible fallback
+
+**Framework:** Direct criterion
+
+Inbound emails can arrive via two paths: forwarded from the company's existing email provider (with `X-Forwarded-To` or `Delivered-To` headers), or sent directly to a subdomain address. Subdomain routing extracts the subdomain from `forwardedTo` or `to` and looks it up in the `subdomains` table. If no subdomain match is found, the system falls back to `companyRepo.findByEmailAddress()`, which searches the `email_addresses` array on the companies table. All new email columns (`from_address`, `to_addresses`, `forwarded_to`, `reply_to_address`) are nullable, so existing emails remain valid.
+
+**Choice:** Subdomain routing first, company email_addresses array fallback.
+
+### Alternatives Considered
+- **Subdomain routing only:** Would not support companies that haven't created a subdomain yet.
+- **Route only by forwardedTo:** Would not support direct-to-subdomain sends.
+
+## Adjective-noun-number pattern for subdomain generation
+
+**Framework:** Direct criterion
+
+Subdomains must be human-readable and unique. An adjective-noun-number pattern (e.g., `bright-falcon-42`) produces memorable subdomains with no external dependency. A uniqueness retry loop handles the rare collision case.
+
+**Choice:** Simple word-list-based generation with retry — no external service needed.
+
+### Alternatives Considered
+- **UUID-based subdomains:** Unique but unreadable. Users see these in forwarding config.
+- **Company-name-based:** Slug collisions between companies with similar names.
+
+## Store replyTo as varchar, not FK
+
+**Framework:** Direct criterion
+
+The `reply_to_address` column stores the email address string resolved from `company.email_addresses` at receive time. A company's email addresses may change over time — if an address is removed from the array, the stored `replyTo` on historical emails must remain valid for audit. A varchar string is self-contained.
+
+**Choice:** `reply_to_address` as varchar(512) — a snapshot of the resolved address at receive time.
+
+### Alternatives Considered
+- **Re-derive from company.email_addresses at send time:** Would break if the address is removed between receive and reply.
+
+## Email addresses as text array on companies, not a separate table
+
+**Framework:** Direct criterion
+
+Email addresses are simple strings — the company's support email addresses (e.g., `support@acme.com`). They have no lifecycle, no verification state, and no external IDs. A separate `email_addresses` table with its own PK, FK, and uniqueness constraint adds unnecessary indirection for what is a plain list of strings. A `varchar(255)[]` column on the companies table is simpler to query, update, and reason about.
+
+**Choice:** `companies.email_addresses varchar(255)[]` — updated via the company API.
+
+### Alternatives Considered
+- **Separate `email_addresses` table:** Adds a table, a repository, a service, and two API endpoints for what amounts to a string list. Overhead not justified.
+
 ---
 
 # Open Questions
@@ -1082,3 +1265,5 @@ Persisting tool calls in a `bot_tool_calls` table (with `input` and `output` as 
 |---|---|---|
 | 2026-03-16 | Claude | Initial draft |
 | 2026-03-16 | Claude | Add bot_tool_calls table, chat history reconstruction design, BAML-aligned tool call formatting |
+| 2026-03-18 | Claude | Add email address fields (from, to, forwardedTo, replyTo), subdomains table, subdomain-based routing, SetupSubdomain DNS workflow, subdomain management APIs |
+| 2026-03-18 | Claude | Remove email_addresses table — move to varchar(255)[] on companies. Decouple subdomain creation as its own 202 API with polling. Update company API for email_addresses |
