@@ -59,7 +59,7 @@ export class SendOwnerEmail {
     const latestInbound = [...allEmails].reverse().find((e) => e.direction === 'inbound');
     const latestEmail = allEmails.length > 0 ? allEmails[allEmails.length - 1] : null;
 
-    let fromAddress = latestInbound?.replyToAddress;
+    let fromAddress = latestInbound?.replyTo;
     if (!fromAddress) {
       const company = await companyRepo.findById(chat.companyId);
       fromAddress = company?.emails?.[0] ?? 'noreply@mail.phonetastic.ai';

@@ -194,10 +194,10 @@ export const emailFactory = Factory.define<EmailRow>(({ sequence }) => ({
   messageId: null,
   inReplyTo: null,
   referenceIds: null,
-  fromAddress: null,
-  toAddresses: null,
+  from: null,
+  to: null,
   forwardedTo: null,
-  replyToAddress: null,
+  replyTo: null,
   status: 'received',
   createdAt: new Date(),
 })).onCreate(async (email) => {

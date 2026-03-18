@@ -34,10 +34,10 @@ export class EmailRepository {
       messageId?: string;
       inReplyTo?: string;
       referenceIds?: string[];
-      fromAddress?: string;
-      toAddresses?: string[];
+      from?: string;
+      to?: string[];
       forwardedTo?: string;
-      replyToAddress?: string;
+      replyTo?: string;
       status?: EmailStatus;
     },
     tx?: Transaction,

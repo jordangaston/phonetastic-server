@@ -20,10 +20,10 @@ export const emails = pgTable('emails', {
   messageId: varchar('message_id', { length: 512 }),
   inReplyTo: varchar('in_reply_to', { length: 512 }),
   referenceIds: text('reference_ids').array(),
-  fromAddress: varchar('from_address', { length: 512 }),
-  toAddresses: text('to_addresses').array(),
+  from: varchar('from', { length: 512 }),
+  to: text('to').array(),
   forwardedTo: varchar('forwarded_to', { length: 512 }),
-  replyToAddress: varchar('reply_to_address', { length: 512 }),
+  replyTo: varchar('reply_to', { length: 512 }),
   status: emailStatusEnum('status').notNull().default('received'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [

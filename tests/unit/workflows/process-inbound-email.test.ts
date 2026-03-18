@@ -370,14 +370,14 @@ describe('ProcessInboundEmail.summarizeAttachments', () => {
 });
 
 describe('ProcessInboundEmail.sendReply', () => {
-  it('sends email via Resend using replyToAddress from latest inbound email', async () => {
+  it('sends email via Resend using replyTo from latest inbound email', async () => {
     const chatRepo = {
       findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, companyId: 5, subject: 'Q' }),
       update: vi.fn(),
     };
     const emailRepo = {
       findAllByChatId: vi.fn().mockResolvedValue([
-        { direction: 'inbound', replyToAddress: 'help@acme.com', messageId: '<prev@m.com>', referenceIds: ['<r1>'] },
+        { direction: 'inbound', replyTo: 'help@acme.com', messageId: '<prev@m.com>', referenceIds: ['<r1>'] },
       ]),
       create: vi.fn(),
     };
@@ -419,14 +419,14 @@ describe('ProcessInboundEmail.sendReply', () => {
     expect(chatRepo.update).toHaveBeenCalledWith(1, expect.objectContaining({ updatedAt: expect.any(Date) }));
   });
 
-  it('falls back to company emails when no replyToAddress', async () => {
+  it('falls back to company emails when no replyTo', async () => {
     const chatRepo = {
       findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, companyId: 5, subject: 'Q' }),
       update: vi.fn(),
     };
     const emailRepo = {
       findAllByChatId: vi.fn().mockResolvedValue([
-        { direction: 'inbound', replyToAddress: null, messageId: '<prev@m.com>', referenceIds: [] },
+        { direction: 'inbound', replyTo: null, messageId: '<prev@m.com>', referenceIds: [] },
       ]),
       create: vi.fn(),
     };

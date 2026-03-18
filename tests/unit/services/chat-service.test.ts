@@ -107,7 +107,7 @@ describe('ChatService', () => {
       expect(result!.isDuplicate).toBe(false);
     });
 
-    it('sets replyToAddress from matching company email address', async () => {
+    it('sets replyTo from matching company email address', async () => {
       const emailDataMulti = {
         ...emailData,
         to: ['billing@acme.com', 'support@acme.com'],
@@ -125,7 +125,7 @@ describe('ChatService', () => {
       await service.receiveInboundEmail(emailDataMulti, 'ext-1');
 
       expect(emailRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ replyToAddress: 'support@acme.com' }),
+        expect.objectContaining({ replyTo: 'support@acme.com' }),
         db,
       );
     });

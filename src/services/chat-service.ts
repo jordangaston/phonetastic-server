@@ -95,10 +95,10 @@ export class ChatService {
         messageId: emailData.messageId,
         inReplyTo: emailData.inReplyTo,
         referenceIds: emailData.references,
-        fromAddress: emailData.from,
-        toAddresses: emailData.to,
+        from: emailData.from,
+        to: emailData.to,
         forwardedTo: emailData.forwardedTo,
-        replyToAddress: resolved.replyToAddress,
+        replyTo: resolved.replyToAddress,
         status: 'received',
       }, tx);
 

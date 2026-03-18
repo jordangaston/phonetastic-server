@@ -197,6 +197,20 @@
       "when": 1773863398757,
       "tag": "0027_easy_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1773863511208,
+      "tag": "0028_pink_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1773863620703,
+      "tag": "0029_freezing_grim_reaper",
+      "breakpoints": true
     }
   ]
 }
