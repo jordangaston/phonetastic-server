@@ -46,6 +46,7 @@ import { BotSkillService } from '../services/bot-skill-service.js';
 import { SmsService } from '../services/sms-service.js';
 import { EmailAddressService } from '../services/email-address-service.js';
 import { ChatService } from '../services/chat-service.js';
+import { SubdomainService } from '../services/subdomain-service.js';
 import { StubResendService, ResendServiceImpl, type ResendService } from '../services/resend-service.js';
 import { StubResendDomainService, ResendDomainServiceImpl, type ResendDomainService } from '../services/resend-domain-service.js';
 import { StubGoDaddyDnsService, GoDaddyDnsServiceImpl, type GoDaddyDnsService } from '../services/godaddy-dns-service.js';
@@ -214,6 +215,7 @@ export function setupContainer(overrides?: {
   container.register('SmsService', { useClass: SmsService });
   container.register('EmailAddressService', { useClass: EmailAddressService });
   container.register('ChatService', { useClass: ChatService });
+  container.register('SubdomainService', { useClass: SubdomainService });
 }
 
 export { container };
