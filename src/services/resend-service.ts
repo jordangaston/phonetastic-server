@@ -14,6 +14,7 @@ export interface ReceivedEmail {
   messageId: string;
   inReplyTo?: string;
   references?: string[];
+  forwardedTo?: string;
   attachments: { id: string; filename: string; contentType: string }[];
 }
 
@@ -113,6 +114,7 @@ export class ResendServiceImpl implements ResendService {
 
     const headers = data!.headers ?? {};
     const references = headers['references']?.split(/\s+/).filter(Boolean);
+    const forwardedTo = headers['x-forwarded-to'] || headers['delivered-to'] || undefined;
 
     return {
       from: data!.from,
@@ -123,6 +125,7 @@ export class ResendServiceImpl implements ResendService {
       messageId: data!.message_id,
       inReplyTo: headers['in-reply-to'] || undefined,
       references: references?.length ? references : undefined,
+      forwardedTo,
       attachments: data!.attachments.map((a) => ({
         id: a.id,
         filename: a.filename ?? 'attachment',

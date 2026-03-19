@@ -75,3 +75,14 @@ export type EmailStatus = (typeof emailStatusEnum.enumValues)[number];
 
 export const attachmentStatusEnum = pgEnum('attachment_status', ['pending', 'stored', 'failed']);
 export type AttachmentStatus = (typeof attachmentStatusEnum.enumValues)[number];
+
+export const subdomainStatusEnum = pgEnum('subdomain_status', [
+  'not_started',
+  'pending',
+  'verified',
+  'partially_verified',
+  'partially_failed',
+  'failed',
+  'temporary_failure',
+]);
+export type SubdomainStatus = (typeof subdomainStatusEnum.enumValues)[number];

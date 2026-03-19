@@ -19,7 +19,7 @@ interface PatchCompanyBody {
     name?: string;
     business_type?: string;
     website?: string;
-    email?: string;
+    emails?: string[];
     operation_hours_text?: string;
     faqs?: Array<{ question: string; answer: string }>;
     offerings?: Array<{
@@ -80,7 +80,7 @@ export async function companyController(app: FastifyInstance): Promise<void> {
           name: input.name,
           businessType: input.business_type,
           website: input.website,
-          email: input.email,
+          emails: input.emails,
         }, tx);
 
         if (parsedHours != null) {
@@ -156,7 +156,7 @@ function formatCompany(c: any) {
     name: c.name,
     business_type: c.businessType,
     website: c.website,
-    email: c.email,
+    emails: c.emails ?? [],
     addresses: c.addresses.map((a: any) => ({
       id: a.id,
       street_address: a.streetAddress,

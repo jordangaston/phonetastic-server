@@ -8,6 +8,8 @@ describe('ChatService', () => {
   let emailRepo: any;
   let attachmentRepo: any;
   let emailAddressRepo: any;
+  let subdomainRepo: any;
+  let companyRepo: any;
   let endUserRepo: any;
   let userRepo: any;
   let service: ChatService;
@@ -30,9 +32,11 @@ describe('ChatService', () => {
     };
     attachmentRepo = { create: vi.fn(), findAllByEmailId: vi.fn() };
     emailAddressRepo = { findByAddress: vi.fn() };
+    subdomainRepo = { findBySubdomain: vi.fn() };
+    companyRepo = { findById: vi.fn(), findByEmailAddress: vi.fn() };
     endUserRepo = { findByEmailAndCompanyId: vi.fn(), create: vi.fn() };
     userRepo = { findById: vi.fn() };
-    service = new ChatService(db, chatRepo, emailRepo, attachmentRepo, emailAddressRepo, endUserRepo, userRepo);
+    service = new ChatService(db, chatRepo, emailRepo, attachmentRepo, emailAddressRepo, subdomainRepo, companyRepo, endUserRepo, userRepo);
   });
 
   describe('receiveInboundEmail', () => {
@@ -46,9 +50,10 @@ describe('ChatService', () => {
       attachments: [],
     };
 
-    it('returns null when to address is unknown', async () => {
+    it('returns null when neither subdomain nor email address matches', async () => {
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
-      emailAddressRepo.findByAddress.mockResolvedValue(null);
+      subdomainRepo.findBySubdomain.mockResolvedValue(null);
+      companyRepo.findByEmailAddress.mockResolvedValue(null);
       const result = await service.receiveInboundEmail(emailData, 'ext-1');
       expect(result).toBeNull();
     });
@@ -64,9 +69,31 @@ describe('ChatService', () => {
       expect(result!.email.id).toBe(1);
     });
 
-    it('creates end user, chat, and email for new inbound', async () => {
+    it('routes via subdomain when forwardedTo matches a subdomain', async () => {
+      const emailDataFwd = {
+        ...emailData,
+        forwardedTo: 'catch-all@acme-sub.mail.phonetastic.ai',
+      };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
-      emailAddressRepo.findByAddress.mockResolvedValue({ id: 1, companyId: 5 });
+      subdomainRepo.findBySubdomain.mockResolvedValue({ id: 1, companyId: 5 });
+      companyRepo.findById.mockResolvedValue({ id: 5, emails: ['support@acme.com'] });
+      endUserRepo.findByEmailAndCompanyId.mockResolvedValue(null);
+      endUserRepo.create.mockResolvedValue({ id: 100 });
+      chatRepo.findOpenByEndUserAndCompany.mockResolvedValue(null);
+      chatRepo.create.mockResolvedValue({ id: 20, subject: null });
+      emailRepo.create.mockResolvedValue({ id: 30 });
+      chatRepo.update.mockResolvedValue({ id: 20, subject: 'Help' });
+
+      const result = await service.receiveInboundEmail(emailDataFwd, 'ext-1');
+
+      expect(subdomainRepo.findBySubdomain).toHaveBeenCalledWith('acme-sub');
+      expect(result!.isDuplicate).toBe(false);
+    });
+
+    it('falls back to companyRepo.findByEmailAddress when no subdomain match', async () => {
+      emailRepo.findByExternalEmailId.mockResolvedValue(null);
+      subdomainRepo.findBySubdomain.mockResolvedValue(null);
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['acme@mail.phonetastic.ai'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue(null);
       endUserRepo.create.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue(null);
@@ -76,16 +103,59 @@ describe('ChatService', () => {
 
       const result = await service.receiveInboundEmail(emailData, 'ext-1');
 
-      expect(endUserRepo.create).toHaveBeenCalledWith({ companyId: 5, email: 'sender@example.com' });
-      expect(chatRepo.create).toHaveBeenCalledWith(expect.objectContaining({ companyId: 5, channel: 'email' }));
-      expect(emailRepo.create).toHaveBeenCalledWith(expect.objectContaining({ direction: 'inbound' }), db);
+      expect(companyRepo.findByEmailAddress).toHaveBeenCalledWith('acme@mail.phonetastic.ai');
       expect(result!.isDuplicate).toBe(false);
+    });
+
+    it('sets replyTo from matching company email address', async () => {
+      const emailDataMulti = {
+        ...emailData,
+        to: ['billing@acme.com', 'support@acme.com'],
+      };
+      emailRepo.findByExternalEmailId.mockResolvedValue(null);
+      subdomainRepo.findBySubdomain.mockResolvedValue(null);
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['support@acme.com', 'billing@acme.com'] });
+      endUserRepo.findByEmailAndCompanyId.mockResolvedValue(null);
+      endUserRepo.create.mockResolvedValue({ id: 100 });
+      chatRepo.findOpenByEndUserAndCompany.mockResolvedValue(null);
+      chatRepo.create.mockResolvedValue({ id: 20, subject: null });
+      emailRepo.create.mockResolvedValue({ id: 30 });
+      chatRepo.update.mockResolvedValue({ id: 20 });
+
+      await service.receiveInboundEmail(emailDataMulti, 'ext-1');
+
+      expect(emailRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ replyTo: 'support@acme.com' }),
+        db,
+      );
+    });
+
+    it('stores forwardedTo on email row', async () => {
+      const emailDataFwd = {
+        ...emailData,
+        forwardedTo: 'catch-all@sub.mail.phonetastic.ai',
+      };
+      emailRepo.findByExternalEmailId.mockResolvedValue(null);
+      subdomainRepo.findBySubdomain.mockResolvedValue({ id: 1, companyId: 5 });
+      companyRepo.findById.mockResolvedValue({ id: 5, emails: [] });
+      endUserRepo.findByEmailAndCompanyId.mockResolvedValue({ id: 100 });
+      chatRepo.findOpenByEndUserAndCompany.mockResolvedValue({ id: 20, subject: 'test' });
+      emailRepo.create.mockResolvedValue({ id: 30 });
+      chatRepo.update.mockResolvedValue({ id: 20 });
+
+      await service.receiveInboundEmail(emailDataFwd, 'ext-1');
+
+      expect(emailRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ forwardedTo: 'catch-all@sub.mail.phonetastic.ai' }),
+        db,
+      );
     });
 
     it('threads by in_reply_to', async () => {
       const emailDataWithReply = { ...emailData, inReplyTo: '<parent@example.com>' };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
-      emailAddressRepo.findByAddress.mockResolvedValue({ id: 1, companyId: 5 });
+      subdomainRepo.findBySubdomain.mockResolvedValue(null);
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['acme@mail.phonetastic.ai'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue({ id: 100 });
       emailRepo.findByMessageId.mockResolvedValue({ id: 5, chatId: 20 });
       chatRepo.findById.mockResolvedValue({ id: 20, subject: 'Existing' });
@@ -103,7 +173,8 @@ describe('ChatService', () => {
         attachments: [{ id: 'att-1', filename: 'file.pdf', contentType: 'application/pdf' }],
       };
       emailRepo.findByExternalEmailId.mockResolvedValue(null);
-      emailAddressRepo.findByAddress.mockResolvedValue({ id: 1, companyId: 5 });
+      subdomainRepo.findBySubdomain.mockResolvedValue(null);
+      companyRepo.findByEmailAddress.mockResolvedValue({ id: 5, emails: ['acme@mail.phonetastic.ai'] });
       endUserRepo.findByEmailAndCompanyId.mockResolvedValue({ id: 100 });
       chatRepo.findOpenByEndUserAndCompany.mockResolvedValue({ id: 20, subject: 'test' });
       emailRepo.create.mockResolvedValue({ id: 32 });

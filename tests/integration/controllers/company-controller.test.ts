@@ -42,7 +42,6 @@ describe('Company Controller', () => {
         name: 'Acme Corp',
         businessType: 'SaaS',
         website: 'https://acme.com',
-        email: 'info@acme.com',
       });
 
       const { accessToken } = await createTestUser(app);
@@ -119,13 +118,31 @@ describe('Company Controller', () => {
         url: `/v1/companies/${company.id}`,
         headers: { authorization: `Bearer ${accessToken}` },
         payload: {
-          company: { name: 'Updated Corp', email: 'new@acme.com' },
+          company: { name: 'Updated Corp' },
         },
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.json().company.name).toBe('Updated Corp');
-      expect(response.json().company.email).toBe('new@acme.com');
+    });
+
+    it('updates emails array', async () => {
+      const company = await companyFactory.create({ name: 'Acme Corp' });
+
+      const { user, accessToken } = await createTestUser(app);
+      await getTestDb().update(users).set({ companyId: company.id }).where(eq(users.id, user.id));
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/v1/companies/${company.id}`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: {
+          company: { emails: ['support@acme.com', 'billing@acme.com'] },
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().company.emails).toEqual(['support@acme.com', 'billing@acme.com']);
     });
 
     it('returns 403 when user does not belong to the company', async () => {

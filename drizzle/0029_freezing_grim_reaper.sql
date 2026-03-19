@@ -1,0 +1,1 @@
+ALTER TABLE "emails" RENAME COLUMN "reply_to_address" TO "reply_to";

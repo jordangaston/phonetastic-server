@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { getTestApp, getTestDb, getStubResendService, closeTestApp } from '../../helpers/test-app.js';
 import { cleanDatabase } from '../../helpers/db-cleaner.js';
-import { companyFactory, emailAddressFactory } from '../../factories/index.js';
+import { companyFactory } from '../../factories/index.js';
+import { companies } from '../../../src/db/schema/companies.js';
 import { emails } from '../../../src/db/schema/emails.js';
 import { chats } from '../../../src/db/schema/chats.js';
 import { eq } from 'drizzle-orm';
@@ -52,7 +53,7 @@ describe('Resend Webhook Controller', () => {
 
   it('persists inbound email and creates chat', async () => {
     const company = await companyFactory.create({ name: 'Webhook Co' });
-    const emailAddr = await emailAddressFactory.create({ companyId: company.id, address: 'webhook@mail.phonetastic.ai' });
+    await getTestDb().update(companies).set({ emails: ['webhook@mail.phonetastic.ai'] }).where(eq(companies.id, company.id));
 
     getStubResendService().setReceivedEmail('email-1', {
       from: 'customer@example.com',
@@ -85,7 +86,7 @@ describe('Resend Webhook Controller', () => {
 
   it('is idempotent for duplicate email_id', async () => {
     const company = await companyFactory.create({ name: 'Dedup Co' });
-    await emailAddressFactory.create({ companyId: company.id, address: 'dedup@mail.phonetastic.ai' });
+    await getTestDb().update(companies).set({ emails: ['dedup@mail.phonetastic.ai'] }).where(eq(companies.id, company.id));
 
     getStubResendService().setReceivedEmail('email-dup', {
       from: 'customer@example.com',

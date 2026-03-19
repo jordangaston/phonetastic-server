@@ -370,17 +370,18 @@ describe('ProcessInboundEmail.summarizeAttachments', () => {
 });
 
 describe('ProcessInboundEmail.sendReply', () => {
-  it('sends email via Resend with replyTo and persists outbound email', async () => {
+  it('sends email using chat.from as the from address', async () => {
     const chatRepo = {
-      findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, emailAddressId: 3, subject: 'Q', companyId: 5 }),
+      findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, companyId: 5, subject: 'Q', from: 'help@acme.com' }),
       update: vi.fn(),
     };
-    const endUserRepo = { findById: vi.fn().mockResolvedValue({ id: 2, email: 'user@test.com' }) };
-    const emailAddressRepo = { findById: vi.fn().mockResolvedValue({ id: 3, address: 'help@acme.com' }) };
     const emailRepo = {
-      findAllByChatId: vi.fn().mockResolvedValue([{ messageId: '<prev@m.com>', referenceIds: ['<r1>'] }]),
+      findAllByChatId: vi.fn().mockResolvedValue([
+        { messageId: '<prev@m.com>', referenceIds: ['<r1>'] },
+      ]),
       create: vi.fn(),
     };
+    const endUserRepo = { findById: vi.fn().mockResolvedValue({ id: 2, email: 'user@test.com' }) };
     const botRepo = { findByUserId: vi.fn().mockResolvedValue({ id: 10 }) };
     const resendService = {
       sendEmail: vi.fn().mockResolvedValue({ id: 'r-1', messageId: '<new@m.com>' }),
@@ -389,7 +390,6 @@ describe('ProcessInboundEmail.sendReply', () => {
     mockContainer.container.resolve
       .mockReturnValueOnce(chatRepo)
       .mockReturnValueOnce(emailRepo)
-      .mockReturnValueOnce(emailAddressRepo)
       .mockReturnValueOnce(endUserRepo)
       .mockReturnValueOnce(botRepo)
       .mockReturnValueOnce(resendService);
@@ -416,10 +416,40 @@ describe('ProcessInboundEmail.sendReply', () => {
     expect(chatRepo.update).toHaveBeenCalledWith(1, expect.objectContaining({ updatedAt: expect.any(Date) }));
   });
 
+  it('falls back to noreply when chat.from is null', async () => {
+    const chatRepo = {
+      findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, companyId: 5, subject: 'Q', from: null }),
+      update: vi.fn(),
+    };
+    const emailRepo = {
+      findAllByChatId: vi.fn().mockResolvedValue([
+        { messageId: '<prev@m.com>', referenceIds: [] },
+      ]),
+      create: vi.fn(),
+    };
+    const endUserRepo = { findById: vi.fn().mockResolvedValue({ id: 2, email: 'user@test.com' }) };
+    const botRepo = { findByUserId: vi.fn().mockResolvedValue({ id: 10 }) };
+    const resendService = {
+      sendEmail: vi.fn().mockResolvedValue({ id: 'r-1', messageId: '<new@m.com>' }),
+    };
+
+    mockContainer.container.resolve
+      .mockReturnValueOnce(chatRepo)
+      .mockReturnValueOnce(emailRepo)
+      .mockReturnValueOnce(endUserRepo)
+      .mockReturnValueOnce(botRepo)
+      .mockReturnValueOnce(resendService);
+
+    await ProcessInboundEmail.sendReply(1, 5, 'Reply');
+
+    expect(resendService.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'noreply@phonetastic.ai' }),
+    );
+  });
+
   it('returns early when chat not found', async () => {
     const chatRepo = { findById: vi.fn().mockResolvedValue(undefined) };
     const emailRepo = { findAllByChatId: vi.fn(), create: vi.fn() };
-    const emailAddressRepo = { findById: vi.fn() };
     const endUserRepo = { findById: vi.fn() };
     const botRepo = { findByUserId: vi.fn() };
     const resendService = { sendEmail: vi.fn() };
@@ -427,7 +457,6 @@ describe('ProcessInboundEmail.sendReply', () => {
     mockContainer.container.resolve
       .mockReturnValueOnce(chatRepo)
       .mockReturnValueOnce(emailRepo)
-      .mockReturnValueOnce(emailAddressRepo)
       .mockReturnValueOnce(endUserRepo)
       .mockReturnValueOnce(botRepo)
       .mockReturnValueOnce(resendService);
@@ -438,9 +467,8 @@ describe('ProcessInboundEmail.sendReply', () => {
   });
 
   it('returns early when end user has no email', async () => {
-    const chatRepo = { findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, emailAddressId: null }) };
+    const chatRepo = { findById: vi.fn().mockResolvedValue({ id: 1, endUserId: 2, companyId: 5, from: null }) };
     const emailRepo = { findAllByChatId: vi.fn(), create: vi.fn() };
-    const emailAddressRepo = { findById: vi.fn() };
     const endUserRepo = { findById: vi.fn().mockResolvedValue({ id: 2, email: null }) };
     const botRepo = { findByUserId: vi.fn() };
     const resendService = { sendEmail: vi.fn() };
@@ -448,7 +476,6 @@ describe('ProcessInboundEmail.sendReply', () => {
     mockContainer.container.resolve
       .mockReturnValueOnce(chatRepo)
       .mockReturnValueOnce(emailRepo)
-      .mockReturnValueOnce(emailAddressRepo)
       .mockReturnValueOnce(endUserRepo)
       .mockReturnValueOnce(botRepo)
       .mockReturnValueOnce(resendService);

@@ -8,7 +8,6 @@ import type { AttachmentRepository } from '../repositories/attachment-repository
 import type { BotToolCallRepository } from '../repositories/bot-tool-call-repository.js';
 import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { EmailRepository } from '../repositories/email-repository.js';
-import type { EmailAddressRepository } from '../repositories/email-address-repository.js';
 import type { EndUserRepository } from '../repositories/end-user-repository.js';
 import type { CompanyRepository } from '../repositories/company-repository.js';
 import type { BotRepository } from '../repositories/bot-repository.js';
@@ -295,7 +294,6 @@ export class ProcessInboundEmail {
   static async sendReply(chatId: number, companyId: number, replyText: string): Promise<void> {
     const chatRepo = container.resolve<ChatRepository>('ChatRepository');
     const emailRepo = container.resolve<EmailRepository>('EmailRepository');
-    const emailAddressRepo = container.resolve<EmailAddressRepository>('EmailAddressRepository');
     const endUserRepo = container.resolve<EndUserRepository>('EndUserRepository');
     const botRepo = container.resolve<BotRepository>('BotRepository');
     const resendService = container.resolve<ResendService>('ResendService');
@@ -306,11 +304,7 @@ export class ProcessInboundEmail {
     const endUser = await endUserRepo.findById(chat.endUserId);
     if (!endUser?.email) return;
 
-    const emailAddress = chat.emailAddressId
-      ? await emailAddressRepo.findById(chat.emailAddressId)
-      : null;
-
-    const fromAddress = emailAddress?.address ?? 'noreply@mail.phonetastic.ai';
+    const fromAddress = chat.from ?? 'noreply@phonetastic.ai';
     const allEmails = await emailRepo.findAllByChatId(chatId, { limit: 100 });
     const latestEmail = allEmails.length > 0 ? allEmails[allEmails.length - 1] : null;
 

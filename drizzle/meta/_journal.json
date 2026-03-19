@@ -162,6 +162,55 @@
       "when": 1773724808208,
       "tag": "0022_groovy_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1773856127394,
+      "tag": "0023_shiny_fallen_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1773856447558,
+      "tag": "0024_pretty_mac_gargan",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1773856498667,
+      "tag": "0025_blushing_sharon_carter",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1773863029879,
+      "tag": "0026_mute_whistler",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1773863398757,
+      "tag": "0027_easy_vanisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1773863511208,
+      "tag": "0028_pink_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1773863620703,
+      "tag": "0029_freezing_grim_reaper",
+      "breakpoints": true
     }
   ]
 }

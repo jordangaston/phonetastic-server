@@ -92,6 +92,48 @@ describe('ResendServiceImpl', () => {
       expect(result.attachments).toEqual([{ id: 'att_1', filename: 'doc.pdf', contentType: 'application/pdf' }]);
     });
 
+    it('extracts forwardedTo from X-Forwarded-To header', async () => {
+      mockReceivingGet.mockResolvedValue({
+        data: {
+          from: 'user@example.com', to: ['support@acme.com'], subject: 'Hi',
+          text: '', html: '', message_id: '<m1>', attachments: [],
+          headers: { 'x-forwarded-to': 'catch-all@sub.mail.phonetastic.ai' },
+        },
+        error: null,
+      });
+
+      const result = await service.getReceivedEmail('email_fwd');
+      expect(result.forwardedTo).toBe('catch-all@sub.mail.phonetastic.ai');
+    });
+
+    it('falls back to Delivered-To when X-Forwarded-To absent', async () => {
+      mockReceivingGet.mockResolvedValue({
+        data: {
+          from: 'user@example.com', to: ['support@acme.com'], subject: 'Hi',
+          text: '', html: '', message_id: '<m1>', attachments: [],
+          headers: { 'delivered-to': 'inbox@sub.mail.phonetastic.ai' },
+        },
+        error: null,
+      });
+
+      const result = await service.getReceivedEmail('email_dlv');
+      expect(result.forwardedTo).toBe('inbox@sub.mail.phonetastic.ai');
+    });
+
+    it('sets forwardedTo to undefined when neither header present', async () => {
+      mockReceivingGet.mockResolvedValue({
+        data: {
+          from: 'user@example.com', to: ['support@acme.com'], subject: 'Hi',
+          text: '', html: '', message_id: '<m1>', attachments: [],
+          headers: {},
+        },
+        error: null,
+      });
+
+      const result = await service.getReceivedEmail('email_none');
+      expect(result.forwardedTo).toBeUndefined();
+    });
+
     it('throws on API error', async () => {
       mockReceivingGet.mockResolvedValue({ data: null, error: { message: 'Not found' } });
       await expect(service.getReceivedEmail('bad_id')).rejects.toThrow('Resend getReceivedEmail failed');

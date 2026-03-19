@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "email_addresses" varchar(255)[] DEFAULT '{}';

@@ -3,6 +3,8 @@ import { ChatRepository } from '../repositories/chat-repository.js';
 import { EmailRepository } from '../repositories/email-repository.js';
 import { AttachmentRepository } from '../repositories/attachment-repository.js';
 import { EmailAddressRepository } from '../repositories/email-address-repository.js';
+import { SubdomainRepository } from '../repositories/subdomain-repository.js';
+import { CompanyRepository } from '../repositories/company-repository.js';
 import { EndUserRepository } from '../repositories/end-user-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
 import { BadRequestError, NotFoundError } from '../lib/errors.js';
@@ -21,6 +23,8 @@ export class ChatService {
     @inject('EmailRepository') private emailRepo: EmailRepository,
     @inject('AttachmentRepository') private attachmentRepo: AttachmentRepository,
     @inject('EmailAddressRepository') private emailAddressRepo: EmailAddressRepository,
+    @inject('SubdomainRepository') private subdomainRepo: SubdomainRepository,
+    @inject('CompanyRepository') private companyRepo: CompanyRepository,
     @inject('EndUserRepository') private endUserRepo: EndUserRepository,
     @inject('UserRepository') private userRepo: UserRepository,
   ) {}
@@ -73,12 +77,11 @@ export class ChatService {
     const existing = await this.emailRepo.findByExternalEmailId(externalEmailId);
     if (existing) return { email: existing, chat: await this.chatRepo.findById(existing.chatId), isDuplicate: true };
 
-    const toAddress = emailData.to[0];
-    const emailAddress = await this.emailAddressRepo.findByAddress(toAddress);
-    if (!emailAddress) return null;
+    const resolved = await this.resolveCompany(emailData);
+    if (!resolved) return null;
 
-    const endUser = await this.findOrCreateEndUser(emailData.from, emailAddress.companyId);
-    const chat = await this.findOrCreateChat(endUser.id, emailAddress.companyId, emailAddress.id, emailData);
+    const endUser = await this.findOrCreateEndUser(emailData.from, resolved.companyId);
+    const chat = await this.findOrCreateChat(endUser.id, resolved.companyId, emailData);
 
     return this.db.transaction(async (tx) => {
       const email = await this.emailRepo.create({
@@ -92,6 +95,10 @@ export class ChatService {
         messageId: emailData.messageId,
         inReplyTo: emailData.inReplyTo,
         referenceIds: emailData.references,
+        from: emailData.from,
+        to: emailData.to,
+        forwardedTo: emailData.forwardedTo,
+        replyTo: resolved.replyToAddress,
         status: 'received',
       }, tx);
 
@@ -104,11 +111,10 @@ export class ChatService {
         }, tx);
       }
 
-      if (!chat.subject && emailData.subject) {
-        await this.chatRepo.update(chat.id, { subject: emailData.subject, updatedAt: new Date() }, tx);
-      } else {
-        await this.chatRepo.update(chat.id, { updatedAt: new Date() }, tx);
-      }
+      const chatUpdate: { subject?: string; from?: string; updatedAt: Date } = { updatedAt: new Date() };
+      if (!chat.subject && emailData.subject) chatUpdate.subject = emailData.subject;
+      if (resolved.replyToAddress) chatUpdate.from = resolved.replyToAddress;
+      await this.chatRepo.update(chat.id, chatUpdate, tx);
 
       return { email, chat, isDuplicate: false };
     });
@@ -203,14 +209,12 @@ export class ChatService {
    *
    * @param endUserId - The end user id.
    * @param companyId - The company id.
-   * @param emailAddressId - The email address id.
    * @param emailData - The received email data for threading.
    * @returns The chat row.
    */
   private async findOrCreateChat(
     endUserId: number,
     companyId: number,
-    emailAddressId: number,
     emailData: ReceivedEmail,
   ) {
     if (emailData.inReplyTo) {
@@ -224,7 +228,52 @@ export class ChatService {
     const openChat = await this.chatRepo.findOpenByEndUserAndCompany(endUserId, companyId);
     if (openChat) return openChat;
 
-    return this.chatRepo.create({ companyId, endUserId, channel: 'email', emailAddressId });
+    return this.chatRepo.create({ companyId, endUserId, channel: 'email' });
+  }
+
+  /**
+   * Resolves the company and reply-to address from an inbound email.
+   * Priority: subdomain extraction → company email_addresses array fallback.
+   *
+   * @param emailData - The received email data.
+   * @returns The company id and reply-to address, or null if unresolvable.
+   */
+  private async resolveCompany(emailData: ReceivedEmail): Promise<{ companyId: number; replyToAddress: string | undefined } | null> {
+    const routingAddress = emailData.forwardedTo ?? emailData.to[0];
+    const domain = routingAddress.split('@')[1] ?? '';
+    const subdomain = domain.split('.')[0];
+
+    if (subdomain) {
+      const subRow = await this.subdomainRepo.findBySubdomain(subdomain);
+      if (subRow) {
+        const company = await this.companyRepo.findById(subRow.companyId);
+        const replyToAddress = this.pickReplyToAddress(company?.emails ?? [], emailData.to);
+        return { companyId: subRow.companyId, replyToAddress };
+      }
+    }
+
+    const toAddress = emailData.to[0];
+    const company = await this.companyRepo.findByEmailAddress(toAddress);
+    if (company) {
+      const replyToAddress = this.pickReplyToAddress(company.emails ?? [], emailData.to);
+      return { companyId: company.id, replyToAddress };
+    }
+
+    return null;
+  }
+
+  /**
+   * Picks a reply-to address by finding the first company email address
+   * that appears in the to list.
+   *
+   * @param companyAddresses - The company's configured email addresses.
+   * @param toList - The email's to addresses.
+   * @returns The matching address, or the first company address, or undefined.
+   */
+  private pickReplyToAddress(companyAddresses: string[], toList: string[]): string | undefined {
+    const toSet = new Set(toList.map((a) => a.toLowerCase()));
+    const match = companyAddresses.find((a) => toSet.has(a.toLowerCase()));
+    return match ?? companyAddresses[0] ?? undefined;
   }
 
   /**

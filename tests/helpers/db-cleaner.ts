@@ -16,6 +16,7 @@ export async function cleanDatabase(db: Database): Promise<void> {
       emails,
       chats,
       email_addresses,
+      subdomains,
       calendars,
       call_transcript_entries,
       call_transcripts,

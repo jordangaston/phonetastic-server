@@ -29,6 +29,7 @@ import { SkillRepository } from '../repositories/skill-repository.js';
 import { BotSkillRepository } from '../repositories/bot-skill-repository.js';
 import { SmsMessageRepository } from '../repositories/sms-message-repository.js';
 import { EmailAddressRepository } from '../repositories/email-address-repository.js';
+import { SubdomainRepository } from '../repositories/subdomain-repository.js';
 import { ChatRepository } from '../repositories/chat-repository.js';
 import { EmailRepository } from '../repositories/email-repository.js';
 import { AttachmentRepository } from '../repositories/attachment-repository.js';
@@ -45,7 +46,10 @@ import { BotSkillService } from '../services/bot-skill-service.js';
 import { SmsService } from '../services/sms-service.js';
 import { EmailAddressService } from '../services/email-address-service.js';
 import { ChatService } from '../services/chat-service.js';
+import { SubdomainService } from '../services/subdomain-service.js';
 import { StubResendService, ResendServiceImpl, type ResendService } from '../services/resend-service.js';
+import { StubResendDomainService, ResendDomainServiceImpl, type ResendDomainService } from '../services/resend-domain-service.js';
+import { StubGoDaddyDnsService, GoDaddyDnsServiceImpl, type GoDaddyDnsService } from '../services/godaddy-dns-service.js';
 import { StubStorageService, TigrisStorageService, type StorageService } from '../services/storage-service.js';
 import { DBOSClientFactory } from '../services/dbos-client-factory.js';
 import { env } from './env.js';
@@ -97,6 +101,20 @@ function createTelephonyService(): TelephonyService {
   return new StubTelephonyService();
 }
 
+function createResendDomainService(): ResendDomainService {
+  if (env.RESEND_API_KEY) {
+    return new ResendDomainServiceImpl(env.RESEND_API_KEY);
+  }
+  return new StubResendDomainService();
+}
+
+function createGoDaddyDnsService(): GoDaddyDnsService {
+  if (env.GODADDY_API_KEY && env.GODADDY_API_SECRET && env.GODADDY_DOMAIN) {
+    return new GoDaddyDnsServiceImpl(env.GODADDY_API_KEY, env.GODADDY_API_SECRET, env.GODADDY_DOMAIN);
+  }
+  return new StubGoDaddyDnsService();
+}
+
 function createResendService(): ResendService {
   if (env.RESEND_API_KEY && env.RESEND_WEBHOOK_SECRET) {
     return new ResendServiceImpl(env.RESEND_API_KEY, env.RESEND_WEBHOOK_SECRET);
@@ -137,6 +155,8 @@ export function setupContainer(overrides?: {
   embeddingService?: EmbeddingService;
   telephonyService?: TelephonyService;
   resendService?: ResendService;
+  resendDomainService?: ResendDomainService;
+  goDaddyDnsService?: GoDaddyDnsService;
   storageService?: StorageService;
 }): void {
   const db = overrides?.db ?? createDb();
@@ -150,6 +170,8 @@ export function setupContainer(overrides?: {
   container.registerInstance<EmbeddingService>('EmbeddingService', overrides?.embeddingService ?? createEmbeddingService());
   container.registerInstance<TelephonyService>('TelephonyService', overrides?.telephonyService ?? createTelephonyService());
   container.registerInstance<ResendService>('ResendService', overrides?.resendService ?? createResendService());
+  container.registerInstance<ResendDomainService>('ResendDomainService', overrides?.resendDomainService ?? createResendDomainService());
+  container.registerInstance<GoDaddyDnsService>('GoDaddyDnsService', overrides?.goDaddyDnsService ?? createGoDaddyDnsService());
   container.registerInstance<StorageService>('StorageService', overrides?.storageService ?? createStorageService());
   if (overrides?.googleCalendarClient) {
     container.registerInstance<GoogleCalendarClient>('GoogleCalendarClient', overrides.googleCalendarClient);
@@ -176,6 +198,7 @@ export function setupContainer(overrides?: {
   container.register('BotSkillRepository', { useClass: BotSkillRepository });
   container.register('SmsMessageRepository', { useClass: SmsMessageRepository });
   container.register('EmailAddressRepository', { useClass: EmailAddressRepository });
+  container.register('SubdomainRepository', { useClass: SubdomainRepository });
   container.register('ChatRepository', { useClass: ChatRepository });
   container.register('EmailRepository', { useClass: EmailRepository });
   container.register('AttachmentRepository', { useClass: AttachmentRepository });
@@ -192,6 +215,7 @@ export function setupContainer(overrides?: {
   container.register('SmsService', { useClass: SmsService });
   container.register('EmailAddressService', { useClass: EmailAddressService });
   container.register('ChatService', { useClass: ChatService });
+  container.register('SubdomainService', { useClass: SubdomainService });
 }
 
 export { container };
