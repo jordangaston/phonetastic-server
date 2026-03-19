@@ -43,16 +43,19 @@ export class SubdomainService {
   }
 
   /**
-   * Returns all subdomains for the user's company.
+   * Returns a paginated list of subdomains for the user's company.
    *
    * @precondition The user must belong to a company.
    * @param userId - The authenticated user's id.
+   * @param opts - Pagination options.
+   * @param opts.pageToken - Subdomain id cursor for pagination.
+   * @param opts.limit - Maximum rows to return.
    * @returns An array of subdomain rows.
    * @throws {BadRequestError} If the user has no company.
    */
-  async listSubdomains(userId: number) {
+  async listSubdomains(userId: number, opts?: { pageToken?: number; limit?: number }) {
     const companyId = await this.requireCompanyId(userId);
-    return this.subdomainRepo.findAllByCompanyId(companyId);
+    return this.subdomainRepo.findAllByCompanyId(companyId, opts);
   }
 
   /**

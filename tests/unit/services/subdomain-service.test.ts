@@ -81,7 +81,16 @@ describe('SubdomainService', () => {
       const result = await service.listSubdomains(1);
 
       expect(result).toHaveLength(1);
-      expect(subdomainRepo.findAllByCompanyId).toHaveBeenCalledWith(5);
+      expect(subdomainRepo.findAllByCompanyId).toHaveBeenCalledWith(5, undefined);
+    });
+
+    it('passes pagination options through', async () => {
+      userRepo.findById.mockResolvedValue({ id: 1, companyId: 5 });
+      subdomainRepo.findAllByCompanyId.mockResolvedValue([]);
+
+      await service.listSubdomains(1, { pageToken: 10, limit: 5 });
+
+      expect(subdomainRepo.findAllByCompanyId).toHaveBeenCalledWith(5, { pageToken: 10, limit: 5 });
     });
   });
 });

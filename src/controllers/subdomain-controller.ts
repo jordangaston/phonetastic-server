@@ -2,6 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import { container } from 'tsyringe';
 import { SubdomainService } from '../services/subdomain-service.js';
 import { authGuard } from '../middleware/auth.js';
+import type { subdomains } from '../db/schema/subdomains.js';
+
+/** Row type returned by the subdomains table. */
+type SubdomainRow = typeof subdomains.$inferSelect;
 
 /**
  * Registers subdomain routes on the Fastify instance.
@@ -26,13 +30,24 @@ export async function subdomainController(app: FastifyInstance): Promise<void> {
     '/v1/subdomains',
     { preHandler: [authGuard] },
     async (request, reply) => {
-      const subdomains = await subdomainService.listSubdomains(request.userId);
-      return reply.send({ subdomains: subdomains.map(formatSubdomain) });
+      const { page_token, limit } = request.query as { page_token?: string; limit?: string };
+      const subdomains = await subdomainService.listSubdomains(request.userId, {
+        pageToken: page_token ? Number(page_token) : undefined,
+        limit: limit ? Number(limit) : undefined,
+      });
+      const nextPageToken = subdomains.length > 0 ? subdomains[subdomains.length - 1].id : undefined;
+      return reply.send({ subdomains: subdomains.map(formatSubdomain), page_token: nextPageToken });
     },
   );
 }
 
-function formatSubdomain(s: any) {
+/**
+ * Formats a subdomain row for the API response.
+ *
+ * @param s - The subdomain database row.
+ * @returns A snake_case API response object.
+ */
+function formatSubdomain(s: SubdomainRow) {
   return {
     id: s.id,
     subdomain: s.subdomain,

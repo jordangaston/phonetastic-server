@@ -66,7 +66,9 @@ describe('Subdomain Controller', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().subdomains).toEqual([]);
+      const body = response.json();
+      expect(body.subdomains).toEqual([]);
+      expect(body).toHaveProperty('page_token');
     });
 
     it('returns subdomains after creation', async () => {

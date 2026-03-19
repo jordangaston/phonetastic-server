@@ -36,25 +36,30 @@ export class GoDaddyDnsServiceImpl implements GoDaddyDnsService {
   /** {@inheritDoc GoDaddyDnsService.configureDns} */
   async configureDns(records: DnsRecord[]): Promise<void> {
     for (const record of records) {
-      const name = record.name.replace(`.${this.domain}`, '') || '@';
-      const body = [{ data: record.value, ttl: 600, priority: record.priority }];
+      await this.putRecord(record);
+    }
+  }
 
-      const response = await fetch(
-        `https://api.godaddy.com/v1/domains/${this.domain}/records/${record.type}/${name}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `sso-key ${this.apiKey}:${this.apiSecret}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        },
-      );
+  /**
+   * Sends a single DNS record to the GoDaddy API.
+   *
+   * @param record - The DNS record to create/update.
+   * @throws {Error} If the API responds with a non-OK status.
+   */
+  private async putRecord(record: DnsRecord): Promise<void> {
+    const name = record.name.replace(`.${this.domain}`, '') || '@';
+    const body = [{ data: record.value, ttl: 600, priority: record.priority }];
+    const url = `https://api.godaddy.com/v1/domains/${this.domain}/records/${record.type}/${name}`;
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`GoDaddy DNS update failed for ${record.type} ${name}: ${text}`);
-      }
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Authorization': `sso-key ${this.apiKey}:${this.apiSecret}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`GoDaddy DNS update failed for ${record.type} ${name}: ${text}`);
     }
   }
 }

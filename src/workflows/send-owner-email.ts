@@ -5,6 +5,7 @@ import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { CompanyRepository } from '../repositories/company-repository.js';
 import type { EndUserRepository } from '../repositories/end-user-repository.js';
 import type { ResendService } from '../services/resend-service.js';
+import { resolveFromAddress } from '../lib/resolve-from-address.js';
 
 export const sendOwnerEmailQueue = new WorkflowQueue('send-owner-email');
 
@@ -59,11 +60,8 @@ export class SendOwnerEmail {
     const latestInbound = [...allEmails].reverse().find((e) => e.direction === 'inbound');
     const latestEmail = allEmails.length > 0 ? allEmails[allEmails.length - 1] : null;
 
-    let fromAddress = latestInbound?.replyTo;
-    if (!fromAddress) {
-      const company = await companyRepo.findById(chat.companyId);
-      fromAddress = company?.emails?.[0] ?? 'noreply@mail.phonetastic.ai';
-    }
+    const company = latestInbound?.replyTo ? null : await companyRepo.findById(chat.companyId);
+    const fromAddress = resolveFromAddress(latestInbound?.replyTo, company?.emails ?? []);
 
     return {
       chatId: chat.id,

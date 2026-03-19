@@ -44,7 +44,7 @@ company:
   id: <%= it.company.id %>
   name: <%= it.company.name || 'unknown' %>
   businessType: <%= it.company.businessType || 'unknown' %>
-  email: <%= it.company.email || 'unknown' %>
+  emails: <%= (it.company.emails && it.company.emails.length) ? it.company.emails.join(', ') : 'unknown' %>
   website: <%= it.company.website || 'unknown' %>
 caller:
   id: <%= it.caller.id %>
@@ -139,12 +139,12 @@ function sleep(ms: number) {
 }
 
 function buildPromptData(data?: {
-  company?: { id: number; name: string; businessType: string | null; email: string | null; website: string | null };
+  company?: { id: number; name: string; businessType: string | null; emails: string[] | null; website: string | null };
   bot?: { id: number; name: string };
   endUser?: { id: number; firstName: string | null; lastName: string | null };
 }) {
   return {
-    company: data?.company ?? { id: 'unknown', name: 'unknown', businessType: 'unknown', email: 'unknown', website: 'unknown' },
+    company: data?.company ?? { id: 'unknown', name: 'unknown', businessType: 'unknown', emails: [], website: 'unknown' },
     caller: data?.endUser ?? { id: 'unknown', firstName: 'unknown', lastName: 'unknown' },
     assistant: data?.bot ?? { id: 'unknown', name: 'unknown' },
     dow: new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(),

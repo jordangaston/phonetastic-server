@@ -1,8 +1,10 @@
 import { injectable, inject } from 'tsyringe';
-import { eq } from 'drizzle-orm';
+import { eq, gt, and, asc } from 'drizzle-orm';
 import { subdomains } from '../db/schema/subdomains.js';
 import type { Database, Transaction } from '../db/index.js';
 import type { SubdomainStatus } from '../db/schema/enums.js';
+
+const DEFAULT_PAGE_SIZE = 20;
 
 /**
  * Data access layer for company subdomains.
@@ -48,13 +50,20 @@ export class SubdomainRepository {
   }
 
   /**
-   * Finds all subdomains belonging to a company.
+   * Finds subdomains belonging to a company with cursor-based pagination.
    *
    * @param companyId - The company id.
-   * @returns An array of subdomain rows.
+   * @param opts - Pagination options.
+   * @param opts.pageToken - Subdomain id cursor; returns rows with id greater than this.
+   * @param opts.limit - Maximum rows to return (default 20).
+   * @returns An array of subdomain rows ordered by id ascending.
    */
-  async findAllByCompanyId(companyId: number) {
-    return this.db.select().from(subdomains).where(eq(subdomains.companyId, companyId));
+  async findAllByCompanyId(companyId: number, opts?: { pageToken?: number; limit?: number }) {
+    const limit = opts?.limit ?? DEFAULT_PAGE_SIZE;
+    const where = opts?.pageToken
+      ? and(eq(subdomains.companyId, companyId), gt(subdomains.id, opts.pageToken))
+      : eq(subdomains.companyId, companyId);
+    return this.db.select().from(subdomains).where(where).orderBy(asc(subdomains.id)).limit(limit);
   }
 
   /**

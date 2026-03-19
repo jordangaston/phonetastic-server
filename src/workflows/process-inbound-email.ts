@@ -15,6 +15,7 @@ import type { FaqRepository } from '../repositories/faq-repository.js';
 import type { EmbeddingService } from '../services/embedding-service.js';
 import type { StorageService } from '../services/storage-service.js';
 import type { ResendService } from '../services/resend-service.js';
+import { resolveFromAddress } from '../lib/resolve-from-address.js';
 import { StoreAttachment } from './store-attachment.js';
 import { UpdateChatSummary } from './update-chat-summary.js';
 
@@ -309,11 +310,8 @@ export class ProcessInboundEmail {
     const latestInbound = [...allEmails].reverse().find((e) => e.direction === 'inbound');
     const latestEmail = allEmails.length > 0 ? allEmails[allEmails.length - 1] : null;
 
-    let fromAddress = latestInbound?.replyTo;
-    if (!fromAddress) {
-      const company = await companyRepo.findById(companyId);
-      fromAddress = company?.emails?.[0] ?? 'noreply@mail.phonetastic.ai';
-    }
+    const company = latestInbound?.replyTo ? null : await companyRepo.findById(companyId);
+    const fromAddress = resolveFromAddress(latestInbound?.replyTo, company?.emails ?? []);
 
     const result = await resendService.sendEmail({
       from: fromAddress,

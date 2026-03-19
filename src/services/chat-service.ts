@@ -83,42 +83,95 @@ export class ChatService {
     const endUser = await this.findOrCreateEndUser(emailData.from, resolved.companyId);
     const chat = await this.findOrCreateChat(endUser.id, resolved.companyId, emailData);
 
+    return this.persistInboundEmail(emailData, externalEmailId, resolved, endUser, chat);
+  }
+
+  /**
+   * Persists the inbound email, attachments, and chat update in a single transaction.
+   *
+   * @param emailData - The received email content.
+   * @param externalEmailId - The Resend email ID for dedup.
+   * @param resolved - The resolved company and reply-to address.
+   * @param endUser - The end user row.
+   * @param chat - The chat row.
+   * @returns The created email, chat, and isDuplicate flag.
+   */
+  private async persistInboundEmail(
+    emailData: ReceivedEmail,
+    externalEmailId: string,
+    resolved: { companyId: number; replyToAddress: string | undefined },
+    endUser: { id: number },
+    chat: { id: number; subject: string | null },
+  ) {
     return this.db.transaction(async (tx) => {
-      const email = await this.emailRepo.create({
-        chatId: chat.id,
-        direction: 'inbound',
-        endUserId: endUser.id,
-        subject: emailData.subject,
-        bodyText: emailData.text,
-        bodyHtml: emailData.html,
-        externalEmailId,
-        messageId: emailData.messageId,
-        inReplyTo: emailData.inReplyTo,
-        referenceIds: emailData.references,
-        from: emailData.from,
-        to: emailData.to,
-        forwardedTo: emailData.forwardedTo,
-        replyTo: resolved.replyToAddress,
-        status: 'received',
-      }, tx);
-
-      for (const att of emailData.attachments) {
-        await this.attachmentRepo.create({
-          emailId: email.id,
-          externalAttachmentId: att.id,
-          filename: att.filename,
-          contentType: att.contentType,
-        }, tx);
-      }
-
-      if (!chat.subject && emailData.subject) {
-        await this.chatRepo.update(chat.id, { subject: emailData.subject, updatedAt: new Date() }, tx);
-      } else {
-        await this.chatRepo.update(chat.id, { updatedAt: new Date() }, tx);
-      }
-
+      const email = await this.createInboundEmailRow(emailData, externalEmailId, resolved, endUser, chat, tx);
+      await this.createAttachmentRows(email.id, emailData.attachments, tx);
+      await this.touchChat(chat, emailData.subject, tx);
       return { email, chat, isDuplicate: false };
     });
+  }
+
+  /**
+   * Creates the inbound email row.
+   *
+   * @param emailData - The received email content.
+   * @param externalEmailId - The Resend email ID.
+   * @param resolved - The resolved company and reply-to address.
+   * @param endUser - The end user row.
+   * @param chat - The chat row.
+   * @param tx - The transaction.
+   * @returns The created email row.
+   */
+  private async createInboundEmailRow(
+    emailData: ReceivedEmail,
+    externalEmailId: string,
+    resolved: { replyToAddress: string | undefined },
+    endUser: { id: number },
+    chat: { id: number },
+    tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+  ) {
+    return this.emailRepo.create({
+      chatId: chat.id, direction: 'inbound', endUserId: endUser.id,
+      subject: emailData.subject, bodyText: emailData.text, bodyHtml: emailData.html,
+      externalEmailId, messageId: emailData.messageId, inReplyTo: emailData.inReplyTo,
+      referenceIds: emailData.references, from: emailData.from, to: emailData.to,
+      forwardedTo: emailData.forwardedTo, replyTo: resolved.replyToAddress, status: 'received',
+    }, tx);
+  }
+
+  /**
+   * Creates attachment rows for an email within a transaction.
+   *
+   * @param emailId - The parent email id.
+   * @param attachments - The attachment metadata from the received email.
+   * @param tx - The transaction.
+   */
+  private async createAttachmentRows(
+    emailId: number,
+    attachments: ReceivedEmail['attachments'],
+    tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+  ) {
+    for (const att of attachments) {
+      await this.attachmentRepo.create({ emailId, externalAttachmentId: att.id, filename: att.filename, contentType: att.contentType }, tx);
+    }
+  }
+
+  /**
+   * Updates the chat's timestamp and optionally sets the subject from the first email.
+   *
+   * @param chat - The chat row.
+   * @param subject - The email subject.
+   * @param tx - The transaction.
+   */
+  private async touchChat(
+    chat: { id: number; subject: string | null },
+    subject: string | undefined,
+    tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+  ) {
+    const updates = !chat.subject && subject
+      ? { subject, updatedAt: new Date() }
+      : { updatedAt: new Date() };
+    await this.chatRepo.update(chat.id, updates, tx);
   }
 
   /**
@@ -240,27 +293,39 @@ export class ChatService {
    * @returns The company id and reply-to address, or null if unresolvable.
    */
   private async resolveCompany(emailData: ReceivedEmail): Promise<{ companyId: number; replyToAddress: string | undefined } | null> {
+    const subdomainMatch = await this.resolveBySubdomain(emailData);
+    if (subdomainMatch) return subdomainMatch;
+    return this.resolveByEmailAddress(emailData);
+  }
+
+  /**
+   * Attempts to resolve a company by extracting the subdomain from the routing address.
+   *
+   * @param emailData - The received email data.
+   * @returns The company id and reply-to address, or null if no subdomain match.
+   */
+  private async resolveBySubdomain(emailData: ReceivedEmail): Promise<{ companyId: number; replyToAddress: string | undefined } | null> {
     const routingAddress = emailData.forwardedTo ?? emailData.to[0];
-    const domain = routingAddress.split('@')[1] ?? '';
-    const subdomain = domain.split('.')[0];
+    const subdomain = (routingAddress.split('@')[1] ?? '').split('.')[0];
+    if (!subdomain) return null;
 
-    if (subdomain) {
-      const subRow = await this.subdomainRepo.findBySubdomain(subdomain);
-      if (subRow) {
-        const company = await this.companyRepo.findById(subRow.companyId);
-        const replyToAddress = this.pickReplyToAddress(company?.emails ?? [], emailData.to);
-        return { companyId: subRow.companyId, replyToAddress };
-      }
-    }
+    const subRow = await this.subdomainRepo.findBySubdomain(subdomain);
+    if (!subRow) return null;
 
-    const toAddress = emailData.to[0];
-    const company = await this.companyRepo.findByEmailAddress(toAddress);
-    if (company) {
-      const replyToAddress = this.pickReplyToAddress(company.emails ?? [], emailData.to);
-      return { companyId: company.id, replyToAddress };
-    }
+    const company = await this.companyRepo.findById(subRow.companyId);
+    return { companyId: subRow.companyId, replyToAddress: this.pickReplyToAddress(company?.emails ?? [], emailData.to) };
+  }
 
-    return null;
+  /**
+   * Attempts to resolve a company by matching the to address against company emails.
+   *
+   * @param emailData - The received email data.
+   * @returns The company id and reply-to address, or null if no match.
+   */
+  private async resolveByEmailAddress(emailData: ReceivedEmail): Promise<{ companyId: number; replyToAddress: string | undefined } | null> {
+    const company = await this.companyRepo.findByEmailAddress(emailData.to[0]);
+    if (!company) return null;
+    return { companyId: company.id, replyToAddress: this.pickReplyToAddress(company.emails ?? [], emailData.to) };
   }
 
   /**
