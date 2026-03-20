@@ -13,7 +13,7 @@ export interface OffersAndFAQs {
   offers: ExtractedOffering[];
 }
 
-const RETRY_CONFIG = { retriesAllowed: true, intervalSeconds: 1, maxAttempts: 3, backoffRate: 2 };
+const RETRY_CONFIG = { retriesAllowed: true, intervalSeconds: 10, maxAttempts: 5, backoffRate: 2 };
 const BATCH_SIZE = 5;
 const FETCH_TIMEOUT_MS = 5_000;
 

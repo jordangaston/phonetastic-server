@@ -10,8 +10,8 @@ import type { CompanyData } from './company-onboarding/parsers/parser-utils.js';
 
 const RETRY_CONFIG = {
   retriesAllowed: true,
-  intervalSeconds: 1,
-  maxAttempts: 3,
+  intervalSeconds: 10,
+  maxAttempts: 5,
   backoffRate: 2,
 };
 
