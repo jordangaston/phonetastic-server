@@ -76,12 +76,14 @@ export async function companyController(app: FastifyInstance): Promise<void> {
         : null;
 
       await db.transaction(async (tx) => {
-        await companyRepo.update(id, {
-          name: input.name,
-          businessType: input.business_type,
-          website: input.website,
-          emails: input.emails,
-        }, tx);
+        const fields: Record<string, unknown> = {};
+        if (input.name !== undefined) fields.name = input.name;
+        if (input.business_type !== undefined) fields.businessType = input.business_type;
+        if (input.website !== undefined) fields.website = input.website;
+        if (input.emails !== undefined) fields.emails = input.emails;
+        if (Object.keys(fields).length > 0) {
+          await companyRepo.update(id, fields, tx);
+        }
 
         if (parsedHours != null) {
           await hourRepo.deleteByCompanyId(id, tx);

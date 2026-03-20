@@ -145,6 +145,75 @@ describe('Company Controller', () => {
       expect(response.json().company.emails).toEqual(['support@acme.com', 'billing@acme.com']);
     });
 
+    it('preserves fields not included in the request body', async () => {
+      const company = await companyFactory.create({
+        name: 'Acme Corp',
+        businessType: 'SaaS',
+        website: 'https://acme.com',
+      });
+
+      const { user, accessToken } = await createTestUser(app);
+      await getTestDb().update(users).set({ companyId: company.id }).where(eq(users.id, user.id));
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/v1/companies/${company.id}`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: { company: { name: 'New Name' } },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json().company;
+      expect(body.name).toBe('New Name');
+      expect(body.business_type).toBe('SaaS');
+      expect(body.website).toBe('https://acme.com');
+    });
+
+    it('updates all scalar fields when all are provided', async () => {
+      const company = await companyFactory.create({ name: 'Old Name' });
+
+      const { user, accessToken } = await createTestUser(app);
+      await getTestDb().update(users).set({ companyId: company.id }).where(eq(users.id, user.id));
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/v1/companies/${company.id}`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: {
+          company: {
+            name: 'New Name',
+            business_type: 'Retail',
+            website: 'https://new.com',
+            emails: ['hello@new.com'],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json().company;
+      expect(body.name).toBe('New Name');
+      expect(body.business_type).toBe('Retail');
+      expect(body.website).toBe('https://new.com');
+      expect(body.emails).toEqual(['hello@new.com']);
+    });
+
+    it('succeeds with an empty company object without modifying data', async () => {
+      const company = await companyFactory.create({ name: 'Acme Corp' });
+
+      const { user, accessToken } = await createTestUser(app);
+      await getTestDb().update(users).set({ companyId: company.id }).where(eq(users.id, user.id));
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/v1/companies/${company.id}`,
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: { company: {} },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().company.name).toBe('Acme Corp');
+    });
+
     it('returns 403 when user does not belong to the company', async () => {
       const company = await companyFactory.create({ name: 'Other Corp' });
 
