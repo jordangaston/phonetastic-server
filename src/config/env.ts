@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import 'dotenv/config';
 
-const envSchema = z.object({
+export const envSchema = z.object({
   TZ: z.string().default('UTC'),
   PORT: z.coerce.number().default(3333),
   HOST: z.string().default('localhost'),
@@ -36,6 +36,21 @@ const envSchema = z.object({
   TIGRIS_BUCKET_NAME: z.string().optional(),
   AWS_ENDPOINT_URL_S3: z.string().optional(),
   AWS_REGION: z.string().default('auto'),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z
+    .string()
+    .url('OTEL_EXPORTER_OTLP_ENDPOINT must be a valid URL starting with http:// or https://')
+    .refine(
+      (val) => val.startsWith('http://') || val.startsWith('https://'),
+      'OTEL_EXPORTER_OTLP_ENDPOINT must start with http:// or https://',
+    )
+    .optional(),
+  OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+  OTEL_EXPORTER_OTLP_PROTOCOL: z
+    .enum(['http/protobuf', 'http/json', 'grpc'], {
+      message: "OTEL_EXPORTER_OTLP_PROTOCOL must be one of 'http/protobuf', 'http/json', or 'grpc'",
+    })
+    .default('http/protobuf'),
+  OTEL_SERVICE_NAME: z.string().default('phonetastic'),
 });
 
 export type Env = z.infer<typeof envSchema>;
