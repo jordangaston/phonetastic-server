@@ -5,6 +5,7 @@ const mockDbos = vi.hoisted(() => ({
     step: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
     workflow: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
     sleepSeconds: vi.fn(),
+    logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
   },
   WorkflowQueue: vi.fn(),
 }));

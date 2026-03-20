@@ -20,10 +20,12 @@ export class SendOwnerEmail {
    */
   @DBOS.workflow()
   static async run(emailId: number): Promise<void> {
+    DBOS.logger.info({ emailId }, 'SendOwnerEmail started');
     const context = await SendOwnerEmail.loadContext(emailId);
     if (!context) return;
 
     const result = await SendOwnerEmail.sendViaResend(context);
+    DBOS.logger.debug({ emailId, chatId: context.chatId }, 'Owner email sent via Resend');
     await SendOwnerEmail.markSent(emailId, result.messageId);
 
     if (context.emailCount > 2) {

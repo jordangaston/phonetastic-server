@@ -26,7 +26,9 @@ export class SetupSubdomain {
    */
   @DBOS.workflow()
   static async run(subdomainId: number): Promise<void> {
+    DBOS.logger.info({ subdomainId }, 'SetupSubdomain started');
     const { id: domainId, records } = await SetupSubdomain.createResendDomain(subdomainId);
+    DBOS.logger.debug({ subdomainId, domainId, recordCount: records.length }, 'Resend domain created');
     await SetupSubdomain.storeResendDomainId(subdomainId, domainId);
 
     for (const record of records) {
@@ -34,6 +36,7 @@ export class SetupSubdomain {
     }
 
     await SetupSubdomain.triggerVerification(domainId);
+    DBOS.logger.debug({ subdomainId, domainId }, 'DNS verification triggered');
 
     for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
       const finished = await SetupSubdomain.checkVerificationStatus(subdomainId, domainId);
@@ -41,6 +44,7 @@ export class SetupSubdomain {
       await DBOS.sleepSeconds(POLL_INTERVAL_SECONDS);
     }
 
+    DBOS.logger.error({ subdomainId, domainId }, 'Verification polling exhausted');
     await SetupSubdomain.updateStatus(subdomainId, 'failed');
   }
 

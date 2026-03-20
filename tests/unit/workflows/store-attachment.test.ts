@@ -6,6 +6,7 @@ vi.mock('@dbos-inc/dbos-sdk', () => ({
     workflow: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
     transaction: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
     drizzleClient: { update: vi.fn() },
+    logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
   },
 }));
 

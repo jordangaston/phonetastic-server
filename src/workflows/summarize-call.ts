@@ -26,8 +26,10 @@ export class SummarizeCallTranscript {
    */
   @DBOS.workflow()
   static async run(callId: number): Promise<void> {
+    DBOS.logger.info({ callId }, 'SummarizeCallTranscript started');
     const entries = await SummarizeCallTranscript.fetchEntries(callId);
     if (!entries.length) return;
+    DBOS.logger.debug({ callId, entryCount: entries.length }, 'Transcript entries fetched');
     const summary = await SummarizeCallTranscript.generateSummary(entries);
     await SummarizeCallTranscript.saveSummary(callId, summary);
   }

@@ -7,6 +7,7 @@ const mockDbos = vi.hoisted(() => ({
     transaction: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
     startWorkflow: vi.fn(),
     drizzleClient: { update: vi.fn() },
+    logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
   },
   WorkflowQueue: vi.fn(),
 }));
