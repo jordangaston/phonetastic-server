@@ -30,10 +30,17 @@ process.once('SIGTERM', () => shutdown('SIGTERM'));
 async function main() {
   setupContainer();
 
+  const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
   DBOS.setConfig({
     name: 'phonetastic',
     databaseUrl: buildDbUrl(),
     runAdminServer: false,
+    ...(otlpEndpoint && {
+      enableOTLP: true,
+      otlpTracesEndpoints: [`${otlpEndpoint}/v1/traces`],
+      otlpLogsEndpoints: [`${otlpEndpoint}/v1/logs`],
+    }),
   });
 
   app = await buildApp({ logger });
