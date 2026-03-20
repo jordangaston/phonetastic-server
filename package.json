@@ -5,7 +5,7 @@
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "kill-agents": "pkill -9 -f job_proc_lazy_main || true",
-    "dev": "npm run kill-agents && tsx watch src/server.ts",
+    "dev": "npm run kill-agents && tsx watch --import ./src/instrumentation.ts src/server.ts",
     "start": "trap 'kill 0' SIGINT; npm run web:start & npm run agent:start & wait",
     "build": "tsc",
     "test": "vitest run",
@@ -18,7 +18,7 @@
     "db:seed-voices": "tsx src/db/seed-voices.ts",
     "download": "node dist/agent.js download-files",
     "agent:start": "node dist/agent.js start",
-    "web:start": "node dist/server.js",
+    "web:start": "node --import ./dist/instrumentation.js dist/server.js",
     "tunnel": "ngrok http --url=${NGROK_DOMAIN:-localhost} ${PORT:-3333}",
     "cli": "tsx src/cli.ts"
   },
