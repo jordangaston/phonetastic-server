@@ -9,7 +9,7 @@ import { AppError, RateLimitError } from '../lib/errors.js';
  * @param app - The Fastify application instance.
  */
 export function registerErrorHandler(app: FastifyInstance): void {
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (error instanceof RateLimitError) {
       return reply.status(429).send({
         retry_after: error.retryAfter,
@@ -23,6 +23,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
       });
     }
 
+    request.log.error(error, 'Unhandled error');
     reply.status(500).send({
       error: { code: 500, message: 'Internal server error' },
     });
