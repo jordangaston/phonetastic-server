@@ -165,7 +165,7 @@ export class CompanyOnboarding {
 }
 
 /** Extracts the first valid number from a price string (e.g. "15.00-30.00" → "15.00"). */
-function sanitizePrice(raw: string | undefined): string | undefined {
+export function sanitizePrice(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   const match = raw.match(/\d+(?:\.\d+)?/);
   return match ? match[0] : undefined;
