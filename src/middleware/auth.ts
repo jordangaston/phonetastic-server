@@ -33,7 +33,12 @@ export async function authGuard(request: FastifyRequest, _reply: FastifyReply): 
   const user = await userRepo.findById(Number(decoded.sub));
   if (!user) throw new UnauthorizedError('User not found');
 
-  const payload = authService.verifyToken(token, user.jwtPublicKey);
+  let payload;
+  try {
+    payload = authService.verifyToken(token, user.jwtPublicKey);
+  } catch {
+    throw new UnauthorizedError('Token expired');
+  }
   if (payload.type !== 'access') throw new UnauthorizedError('Invalid token type');
 
   request.userId = user.id;
