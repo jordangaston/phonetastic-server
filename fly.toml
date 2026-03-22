@@ -1,0 +1,47 @@
+app = "phonetastic-web"
+primary_region = "iad"
+kill_signal = "SIGTERM"
+kill_timeout = 30
+
+[build]
+dockerfile = "Dockerfile"
+
+[deploy]
+strategy = "rolling"
+release_command = "node dist/db/migrate.js"
+
+[env]
+PORT = "8080"
+HOST = "0.0.0.0"
+NODE_ENV = "production"
+LOG_LEVEL = "info"
+TZ = "UTC"
+GODADDY_DOMAIN = "mail.phonetastic.ai"
+GOOGLE_REDIRECT_URI = "https://phonetastic-web.fly.dev/v1/google/callback"
+TIGRIS_BUCKET_NAME = "phonetastic-uploads"
+AWS_REGION = "auto"
+AWS_ENDPOINT_URL_S3 = "https://fly.storage.tigris.dev"
+OTEL_SERVICE_NAME = "phonetastic-web"
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 1
+
+[http_service.concurrency]
+type = "requests"
+soft_limit = 200
+hard_limit = 250
+
+[[http_service.checks]]
+grace_period = "10s"
+interval = "30s"
+method = "GET"
+timeout = "5s"
+path = "/health"
+
+[[vm]]
+size = "shared-cpu-2x"
+memory = "1gb"

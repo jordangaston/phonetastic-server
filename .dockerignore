@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+tests/
+KMS/
+.claude/
+.cursor/
+.git/
+docs/
+scripts/
+*.md

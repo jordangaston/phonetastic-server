@@ -8,6 +8,8 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_KEY: z.string().min(1),
+  DATABASE_URL: z.string().url().optional(),
+  DIRECT_DATABASE_URL: z.string().url().optional(),
   DB_HOST: z.string().default('127.0.0.1'),
   DB_PORT: z.coerce.number().default(5432),
   DB_USER: z.string().default('postgres'),

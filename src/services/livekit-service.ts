@@ -1,4 +1,11 @@
-import { AccessToken, RoomServiceClient, AgentDispatchClient } from 'livekit-server-sdk';
+import {
+  AccessToken,
+  RoomServiceClient,
+  AgentDispatchClient,
+  SipClient,
+  RoomConfiguration,
+  RoomAgentDispatch,
+} from 'livekit-server-sdk';
 import { toE164 } from '../lib/phone.js';
 
 const AGENT_NAME = 'phonetastic-agent';
@@ -56,6 +63,15 @@ export interface LiveKitService {
    * @returns Resolves when the room is deleted.
    */
   deleteRoom(roomName: string): Promise<void>;
+
+  /**
+   * Creates a SIP dispatch rule that places every caller from the given phone number
+   * into a separate room and automatically dispatches the voice agent.
+   *
+   * @param phoneNumber - The E.164 phone number to match (the trunk/called number).
+   * @returns Resolves when the dispatch rule is created.
+   */
+  createSipDispatchRule(phoneNumber: string): Promise<void>;
 }
 
 /**
@@ -93,6 +109,8 @@ export class StubLiveKitService implements LiveKitService {
     const idx = this.createdRooms.indexOf(roomName);
     if (idx !== -1) this.createdRooms.splice(idx, 1);
   }
+
+  async createSipDispatchRule(_phoneNumber: string): Promise<void> {}
 }
 
 interface ListNumbersResponse {
@@ -156,6 +174,25 @@ export class LiveKitServiceImpl implements LiveKitService {
   /** {@inheritDoc LiveKitService.deleteRoom} */
   async deleteRoom(roomName: string): Promise<void> {
     await this.roomService.deleteRoom(roomName);
+  }
+
+  /** {@inheritDoc LiveKitService.createSipDispatchRule} */
+  async createSipDispatchRule(phoneNumber: string): Promise<void> {
+    const httpUrl = this.url.replace('wss://', 'https://').replace('ws://', 'http://');
+    const sipClient = new SipClient(httpUrl, this.apiKey, this.apiSecret);
+    const trunks = await sipClient.listSipInboundTrunk({ numbers: [phoneNumber] });
+    const trunk = trunks.find((t) => t.numbers.includes(phoneNumber));
+    if (!trunk) throw new Error(`No SIP trunk found for ${phoneNumber}`);
+    await sipClient.createSipDispatchRule(
+      { type: 'individual', roomPrefix: 'call-' },
+      {
+        name: phoneNumber,
+        trunkIds: [trunk.sipTrunkId],
+        roomConfig: new RoomConfiguration({
+          agents: [new RoomAgentDispatch({ agentName: AGENT_NAME })],
+        }),
+      },
+    );
   }
 
   /** {@inheritDoc LiveKitService.purchasePhoneNumber} */

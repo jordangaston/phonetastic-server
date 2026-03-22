@@ -35,6 +35,7 @@ export class PhoneNumberService {
     }
 
     const e164 = await this.livekitService.purchasePhoneNumber(areaCode);
+    await this.livekitService.createSipDispatchRule(e164);
     return this.phoneNumberRepo.create({ phoneNumberE164: e164, isVerified: true });
   }
 }

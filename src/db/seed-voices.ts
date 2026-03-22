@@ -27,10 +27,15 @@ function nameFromFilename(filename: string): string {
   return stem.charAt(0).toUpperCase() + stem.slice(1);
 }
 
-async function seedVoices() {
-  const { DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE } = env;
+function buildConnectionUrl(): string {
+  const { DATABASE_URL, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE } = env;
+  if (DATABASE_URL) return DATABASE_URL;
   const auth = DB_PASSWORD ? `${DB_USER}:${DB_PASSWORD}` : DB_USER;
-  const client = postgres(`postgresql://${auth}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}`, { max: 1 });
+  return `postgresql://${auth}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}`;
+}
+
+async function seedVoices() {
+  const client = postgres(buildConnectionUrl(), { max: 1 });
   const db = drizzle(client);
 
   const files = readdirSync(VOICES_DIR).filter(f => f.endsWith('.wav'));

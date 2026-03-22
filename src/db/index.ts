@@ -43,9 +43,15 @@ export function createDb(options?: CreateDbOptions) {
 }
 
 export function buildDbUrl(): string {
+  if (env.DATABASE_URL) return env.DATABASE_URL;
   const { DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE } = env;
   const auth = DB_PASSWORD ? `${DB_USER}:${DB_PASSWORD}` : DB_USER;
   return `postgresql://${auth}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}`;
+}
+
+export function buildDirectDbUrl(): string {
+  if (env.DIRECT_DATABASE_URL) return env.DIRECT_DATABASE_URL;
+  return buildDbUrl();
 }
 
 export type Database = ReturnType<typeof createDb>;
