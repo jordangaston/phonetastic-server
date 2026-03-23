@@ -15,15 +15,18 @@ FROM deps AS build
 COPY . .
 RUN npx baml-cli generate
 RUN npm run build
+RUN APP_KEY=build-placeholder node dist/agent.js download-files
 RUN npm prune --omit=dev
 
 FROM base AS production
-COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/dist /app/dist
-COPY --from=build /app/drizzle /app/drizzle
-COPY --from=build /app/package.json /app/package.json
-COPY --from=build /app/baml_src /app/baml_src
-COPY --from=build /app/src/config/voices /app/src/config/voices
+ARG UID=10001
+RUN adduser --disabled-password --gecos "" --home "/app" --shell "/sbin/nologin" --uid "${UID}" appuser
+COPY --from=build --chown=appuser:appuser /app/node_modules /app/node_modules
+COPY --from=build --chown=appuser:appuser /app/dist /app/dist
+COPY --from=build --chown=appuser:appuser /app/package.json /app/package.json
+COPY --from=build --chown=appuser:appuser /app/baml_src /app/baml_src
+USER appuser
 
-EXPOSE 8080
-CMD ["node", "--import", "./dist/instrumentation.js", "dist/server.js"]
+ENV OTEL_SERVICE_NAME="phonetastic-agent"
+
+CMD ["node", "dist/agent.js", "start"]
