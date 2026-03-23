@@ -180,19 +180,19 @@ export class LiveKitServiceImpl implements LiveKitService {
   async createSipDispatchRule(phoneNumber: string): Promise<void> {
     const httpUrl = this.url.replace('wss://', 'https://').replace('ws://', 'http://');
     const sipClient = new SipClient(httpUrl, this.apiKey, this.apiSecret);
-    const trunks = await sipClient.listSipInboundTrunk({ numbers: [phoneNumber] });
-    const trunk = trunks.find((t) => t.numbers.includes(phoneNumber));
-    if (!trunk) throw new Error(`No SIP trunk found for ${phoneNumber}`);
-    await sipClient.createSipDispatchRule(
+    const rule = await sipClient.createSipDispatchRule(
       { type: 'individual', roomPrefix: 'call-' },
       {
         name: phoneNumber,
-        trunkIds: [trunk.sipTrunkId],
         roomConfig: new RoomConfiguration({
           agents: [new RoomAgentDispatch({ agentName: AGENT_NAME })],
         }),
       },
     );
+    await this.callTwirp('UpdatePhoneNumber', {
+      phone_number: phoneNumber,
+      sip_dispatch_rule_id: rule.sipDispatchRuleId,
+    });
   }
 
   /** {@inheritDoc LiveKitService.purchasePhoneNumber} */
