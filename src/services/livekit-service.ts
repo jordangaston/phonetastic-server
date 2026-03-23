@@ -69,9 +69,9 @@ export interface LiveKitService {
    * into a separate room and automatically dispatches the voice agent.
    *
    * @param phoneNumber - The E.164 phone number to match (the trunk/called number).
-   * @returns Resolves when the dispatch rule is created.
+   * @returns The created dispatch rule ID.
    */
-  createSipDispatchRule(phoneNumber: string): Promise<void>;
+  createSipDispatchRule(phoneNumber: string): Promise<string>;
 }
 
 /**
@@ -110,7 +110,7 @@ export class StubLiveKitService implements LiveKitService {
     if (idx !== -1) this.createdRooms.splice(idx, 1);
   }
 
-  async createSipDispatchRule(_phoneNumber: string): Promise<void> {}
+  async createSipDispatchRule(_phoneNumber: string): Promise<string> { return 'stub-rule-id'; }
 }
 
 interface SearchNumbersResponse {
@@ -177,13 +177,13 @@ export class LiveKitServiceImpl implements LiveKitService {
   }
 
   /** {@inheritDoc LiveKitService.createSipDispatchRule} */
-  async createSipDispatchRule(phoneNumber: string): Promise<void> {
+  async createSipDispatchRule(phoneNumber: string): Promise<string> {
     const httpUrl = this.url.replace('wss://', 'https://').replace('ws://', 'http://');
     const sipClient = new SipClient(httpUrl, this.apiKey, this.apiSecret);
     const rule = await sipClient.createSipDispatchRule(
       { type: 'individual', roomPrefix: 'call-' },
       {
-        name: phoneNumber,
+        name: 'phonetastic-inbound',
         roomConfig: new RoomConfiguration({
           agents: [new RoomAgentDispatch({ agentName: AGENT_NAME })],
         }),
@@ -193,6 +193,7 @@ export class LiveKitServiceImpl implements LiveKitService {
       phone_number: phoneNumber,
       sip_dispatch_rule_id: rule.sipDispatchRuleId,
     });
+    return rule.sipDispatchRuleId;
   }
 
   /** {@inheritDoc LiveKitService.purchasePhoneNumber} */
@@ -224,7 +225,10 @@ export class LiveKitServiceImpl implements LiveKitService {
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok) throw new Error(`LiveKit ${method} failed: ${response.statusText}`);
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`LiveKit ${method} failed (${response.status}): ${body}`);
+    }
     return response.json() as Promise<T>;
   }
 }

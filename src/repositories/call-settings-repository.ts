@@ -53,6 +53,7 @@ export class CallSettingsRepository {
     isBotEnabled?: boolean;
     ringsBeforeBotAnswer?: number;
     answerCallsFrom?: AnswerCallsFrom;
+    sipDispatchRuleId?: string;
   }, tx?: Transaction) {
     const [row] = await (tx ?? this.db).update(callSettings).set(data).where(eq(callSettings.id, id)).returning();
     return row;

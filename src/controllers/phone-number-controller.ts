@@ -17,7 +17,7 @@ export async function phoneNumberController(app: FastifyInstance): Promise<void>
     Body: { phone_number: { area_code?: string } };
   }>('/v1/phone_numbers', { preHandler: [authGuard] }, async (request, reply) => {
     const { phone_number } = request.body;
-    const created = await phoneNumberService.purchase(phone_number.area_code);
+    const created = await phoneNumberService.purchase(request.userId!, phone_number.area_code);
 
     return reply.status(201).send({
       phone_number: {

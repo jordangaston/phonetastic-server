@@ -4,7 +4,7 @@ class CuratedOffersAndFAQs {
 }
 
 function CurateOffersAndFAQs(faqs: ExtractedFaq[], offerings: ExtractedOffering[]) -> CuratedOffersAndFAQs {
-  client GPT5
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }}
     <context>

@@ -2,6 +2,9 @@
 
 FROM node:22-slim AS base
 WORKDIR /app
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 
 FROM base AS deps

@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, boolean, text } from 'drizzle-orm/pg-core';
 import { phoneNumbers } from './phone-numbers';
 import { users } from './users';
 import { answerCallsFromEnum } from './enums';
@@ -11,4 +11,5 @@ export const callSettings = pgTable('call_settings', {
   isBotEnabled: boolean('is_bot_enabled').notNull().default(false),
   ringsBeforeBotAnswer: integer('rings_before_bot_answer').notNull().default(3),
   answerCallsFrom: answerCallsFromEnum('answer_calls_from').notNull().default('everyone'),
+  sipDispatchRuleId: text('sip_dispatch_rule_id'),
 });
