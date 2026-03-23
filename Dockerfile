@@ -25,8 +25,10 @@ COPY --from=build --chown=appuser:appuser /app/node_modules /app/node_modules
 COPY --from=build --chown=appuser:appuser /app/dist /app/dist
 COPY --from=build --chown=appuser:appuser /app/package.json /app/package.json
 COPY --from=build --chown=appuser:appuser /app/baml_src /app/baml_src
+COPY --from=build --chown=appuser:appuser /root/.cache /app/.cache
 USER appuser
 
 ENV OTEL_SERVICE_NAME="phonetastic-agent"
+ENV HF_HOME="/app/.cache/huggingface"
 
 CMD ["node", "dist/agent.js", "start"]
