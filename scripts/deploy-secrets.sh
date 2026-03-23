@@ -18,6 +18,9 @@ SHARED_SECRETS=(
 # Web-only secrets (sensitive credentials only — non-sensitive vars live in fly.toml [env])
 WEB_SECRETS=(
   direct_database_url:DIRECT_DATABASE_URL
+  livekit_url:LIVEKIT_URL
+  livekit_api_key:LIVEKIT_API_KEY
+  livekit_api_secret:LIVEKIT_API_SECRET
   twilio_account_sid:TWILIO_ACCOUNT_SID
   twilio_auth_token:TWILIO_AUTH_TOKEN
   twilio_verify_service_sid:TWILIO_VERIFY_SERVICE_SID

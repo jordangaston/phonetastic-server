@@ -113,12 +113,12 @@ export class StubLiveKitService implements LiveKitService {
   async createSipDispatchRule(_phoneNumber: string): Promise<void> {}
 }
 
-interface ListNumbersResponse {
-  phoneNumbers?: Array<{ phoneNumber: string }>;
+interface SearchNumbersResponse {
+  items?: Array<{ e164_format: string }>;
 }
 
 interface PurchaseNumberResponse {
-  phoneNumber: string;
+  phone_numbers?: Array<{ e164_format: string }>;
 }
 
 /**
@@ -197,17 +197,25 @@ export class LiveKitServiceImpl implements LiveKitService {
 
   /** {@inheritDoc LiveKitService.purchasePhoneNumber} */
   async purchasePhoneNumber(areaCode?: string): Promise<string> {
-    const available = await this.callTwirp<ListNumbersResponse>('ListAvailablePhoneNumbers', { areaCode });
-    const selected = available.phoneNumbers?.[0]?.phoneNumber;
+    const search = await this.callTwirp<SearchNumbersResponse>(
+      'SearchPhoneNumbers',
+      { country_code: 'US', ...(areaCode && { area_code: areaCode }), limit: 1 },
+    );
+    const selected = search.items?.[0]?.e164_format;
     if (!selected) throw new Error('No phone numbers available');
-    const result = await this.callTwirp<PurchaseNumberResponse>('PurchasePhoneNumber', { phoneNumber: selected });
-    return toE164(result.phoneNumber);
+    const result = await this.callTwirp<PurchaseNumberResponse>(
+      'PurchasePhoneNumber',
+      { phone_numbers: [selected] },
+    );
+    const purchased = result.phone_numbers?.[0]?.e164_format;
+    if (!purchased) throw new Error('Phone number purchase failed');
+    return toE164(purchased);
   }
 
   private async callTwirp<T>(method: string, payload: Record<string, unknown>): Promise<T> {
     const httpUrl = this.url.replace('wss://', 'https://').replace('ws://', 'http://');
     const token = new AccessToken(this.apiKey, this.apiSecret);
-    token.addGrant({ roomAdmin: true });
+    token.addSIPGrant({ admin: true });
     const jwt = await token.toJwt();
 
     const response = await fetch(`${httpUrl}/twirp/livekit.PhoneNumberService/${method}`, {
