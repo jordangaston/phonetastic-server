@@ -10,6 +10,7 @@ import type { EmbeddingService } from '../services/embedding-service.js';
 import type { OfferingRepository } from '../repositories/offering-repository.js';
 import { stripHtml } from './company-onboarding/parsers/parser-utils.js';
 import type { CompanyData } from './company-onboarding/parsers/parser-utils.js';
+import { validateBusinessType } from './company-onboarding/business-types.js';
 import { ExtractOffersAndFAQs } from './extract-offers-and-faqs.js';
 import { ExtractCompany } from './extract-company.js';
 
@@ -85,11 +86,8 @@ export class CompanyOnboarding {
    */
   @DBOS.step()
   static async classifyBusinessType(html: string): Promise<string | null> {
-    try {
-      return await b.ClassifyBusinessType(stripHtml(html)) ?? null;
-    } catch {
-      return null;
-    }
+    const result = await b.ClassifyBusinessType(stripHtml(html));
+    return validateBusinessType(result ?? null);
   }
 
   /**
