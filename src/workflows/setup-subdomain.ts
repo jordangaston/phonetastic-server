@@ -5,7 +5,7 @@ import type { ResendDomainService, DnsRecord } from '../services/resend-domain-s
 import type { GoDaddyDnsService } from '../services/godaddy-dns-service.js';
 import type { SubdomainStatus } from '../db/schema/enums.js';
 
-export const setupSubdomainQueue = new WorkflowQueue('setup-subdomain');
+export const SETUP_SUBDOMAIN_QUEUE = new WorkflowQueue('setup-subdomain');
 
 const MAX_POLL_ATTEMPTS = 10;
 const POLL_INTERVAL_SECONDS = 30;

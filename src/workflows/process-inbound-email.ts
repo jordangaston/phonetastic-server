@@ -18,7 +18,7 @@ import type { ResendService } from '../services/resend-service.js';
 import { StoreAttachment } from './store-attachment.js';
 import { UpdateChatSummary } from './update-chat-summary.js';
 
-export const processInboundEmailQueue = new WorkflowQueue('process-inbound-email');
+export const PROCESS_INBOUND_EMAIL_QUEUE = new WorkflowQueue('process-inbound-email');
 
 const MAX_SUMMARIZE_SIZE = 10 * 1024 * 1024;
 const MAX_AGENT_TURNS = 5;
