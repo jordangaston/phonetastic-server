@@ -1,6 +1,6 @@
 import { Eta } from 'eta';
 
-export const systemPrompt = `
+export const SYSTEM_PROMPT = `
 ---
 <principles>
 You are not a chatbot.  You are the worlds greatest executive assistant.
@@ -86,7 +86,7 @@ export function buildPromptData(data?: {
  * @postcondition Returns the rendered prompt string.
  */
 export function renderPrompt(data: ReturnType<typeof buildPromptData>): Promise<string> {
-  return ETA.renderStringAsync(systemPrompt, data);
+  return ETA.renderStringAsync(SYSTEM_PROMPT, data);
 }
 
 /**
