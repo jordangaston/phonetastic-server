@@ -156,27 +156,22 @@ export class ResendServiceImpl implements ResendService {
     attachments?: { filename: string; content: Buffer; contentType: string }[];
   }): Promise<SendEmailResult> {
     const messageId = `<${randomUUID()}@mail.phonetastic.ai>`;
-    const headers: Record<string, string> = { 'Message-ID': messageId };
-    if (params.inReplyTo) headers['In-Reply-To'] = params.inReplyTo;
-    if (params.references?.length) headers['References'] = params.references.join(' ');
-
+    const headers = buildEmailHeaders(messageId, params.inReplyTo, params.references);
     const { data, error } = await this.client.emails.send({
-      from: params.from,
-      to: params.to,
-      subject: params.subject,
-      text: params.text,
-      replyTo: params.replyTo,
-      headers,
-      attachments: params.attachments?.map((a) => ({
-        filename: a.filename,
-        content: a.content,
-        content_type: a.contentType,
-      })),
+      from: params.from, to: params.to, subject: params.subject,
+      text: params.text, replyTo: params.replyTo, headers,
+      attachments: params.attachments?.map((a) => ({ filename: a.filename, content: a.content, content_type: a.contentType })),
     });
     if (error) throw new Error(`Resend sendEmail failed: ${error.message}`);
-
     return { id: data!.id, messageId };
   }
+}
+
+function buildEmailHeaders(messageId: string, inReplyTo?: string, references?: string[]): Record<string, string> {
+  const headers: Record<string, string> = { 'Message-ID': messageId };
+  if (inReplyTo) headers['In-Reply-To'] = inReplyTo;
+  if (references?.length) headers['References'] = references.join(' ');
+  return headers;
 }
 
 /**
