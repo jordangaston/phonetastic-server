@@ -5,7 +5,7 @@ import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { EndUserRepository } from '../repositories/end-user-repository.js';
 import type { ResendService } from '../services/resend-service.js';
 
-export const sendOwnerEmailQueue = new WorkflowQueue('send-owner-email');
+export const SEND_OWNER_EMAIL_QUEUE = new WorkflowQueue('send-owner-email');
 
 /**
  * DBOS workflow that sends an owner's reply email via Resend.

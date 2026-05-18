@@ -6,7 +6,7 @@ import { chats } from '../db/schema/chats.js';
 import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { EmailRepository } from '../repositories/email-repository.js';
 
-export const updateChatSummaryQueue = new WorkflowQueue('update-chat-summary');
+export const UPDATE_CHAT_SUMMARY_QUEUE = new WorkflowQueue('update-chat-summary');
 
 const RETRY_CONFIG = {
   retriesAllowed: true,
