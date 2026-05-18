@@ -111,27 +111,7 @@ export class ResendServiceImpl implements ResendService {
   async getReceivedEmail(emailId: string): Promise<ReceivedEmail> {
     const { data, error } = await this.client.emails.receiving.get(emailId);
     if (error) throw new Error(`Resend getReceivedEmail failed: ${error.message}`);
-
-    const headers = data!.headers ?? {};
-    const references = headers['references']?.split(/\s+/).filter(Boolean);
-    const forwardedTo = headers['x-forwarded-to'] || headers['delivered-to'] || undefined;
-
-    return {
-      from: data!.from,
-      to: data!.to,
-      subject: data!.subject,
-      text: data!.text ?? '',
-      html: data!.html ?? '',
-      messageId: data!.message_id,
-      inReplyTo: headers['in-reply-to'] || undefined,
-      references: references?.length ? references : undefined,
-      forwardedTo,
-      attachments: data!.attachments.map((a) => ({
-        id: a.id,
-        filename: a.filename ?? 'attachment',
-        contentType: a.content_type,
-      })),
-    };
+    return parseReceivedEmailData(data!);
   }
 
   /** {@inheritDoc ResendService.getAttachmentContent} */
@@ -236,4 +216,33 @@ export class StubResendService implements ResendService {
     this.sentEmails.push(params);
     return { id: `resend-${this.sendCounter}`, messageId: `<msg-${this.sendCounter}@resend.dev>` };
   }
+}
+
+function parseEmailHeaders(headers: Record<string, string>): Pick<ReceivedEmail, 'inReplyTo' | 'references' | 'forwardedTo'> {
+  const references = headers['references']?.split(/\s+/).filter(Boolean);
+  return {
+    inReplyTo: headers['in-reply-to'] || undefined,
+    references: references?.length ? references : undefined,
+    forwardedTo: headers['x-forwarded-to'] || headers['delivered-to'] || undefined,
+  };
+}
+
+function parseReceivedEmailData(data: {
+  from: string; to: string[]; subject: string; text?: string | null; html?: string | null;
+  message_id: string; headers?: Record<string, string> | null;
+  attachments: { id: string; filename?: string | null; content_type: string }[];
+}): ReceivedEmail {
+  const { inReplyTo, references, forwardedTo } = parseEmailHeaders(data.headers ?? {});
+  return {
+    from: data.from,
+    to: data.to,
+    subject: data.subject,
+    text: data.text ?? '',
+    html: data.html ?? '',
+    messageId: data.message_id,
+    inReplyTo,
+    references,
+    forwardedTo,
+    attachments: data.attachments.map((a) => ({ id: a.id, filename: a.filename ?? 'attachment', contentType: a.content_type })),
+  };
 }
