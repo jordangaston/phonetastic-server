@@ -1,15 +1,4 @@
-/**
- * @public
- * Parsed operation hour entry for a single day.
- */
-export interface OperationHourData {
-  /** Day of week as integer: 0 = Sunday, 6 = Saturday. */
-  dayOfWeek: number;
-  /** Opening time in HH:MM format. */
-  openTime: string;
-  /** Closing time in HH:MM format. */
-  closeTime: string;
-}
+import type { OperationHourData } from './parser-utils.js';
 
 const DAY_ORDER = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
 
