@@ -161,6 +161,38 @@ export async function companyController(app: FastifyInstance): Promise<void> {
   }
 }
 
+function formatAddress(a: Address) {
+  return {
+    id: a.id,
+    street_address: a.streetAddress,
+    city: a.city,
+    state: a.state,
+    postal_code: a.postalCode,
+    country: a.country,
+    label: a.label,
+  };
+}
+
+function formatOperationHour(h: OperationHours) {
+  return { id: h.id, day_of_week: h.dayOfWeek, open_time: h.openTime, close_time: h.closeTime };
+}
+
+function formatPhoneNumber(p: PhoneNumber) {
+  return { id: p.id, phone_number_e164: p.phoneNumberE164, is_verified: p.isVerified, label: p.label };
+}
+
+function formatOffering(o: Offering) {
+  return {
+    id: o.id,
+    type: o.type,
+    name: o.name,
+    description: o.description,
+    price_amount: o.priceAmount,
+    price_currency: o.priceCurrency,
+    price_frequency: o.priceFrequency,
+  };
+}
+
 function formatCompany(c: CompanyWithRelations) {
   return {
     id: c.id,
@@ -168,41 +200,11 @@ function formatCompany(c: CompanyWithRelations) {
     business_type: c.businessType,
     website: c.website,
     emails: c.emails ?? [],
-    addresses: c.addresses.map((a) => ({
-      id: a.id,
-      street_address: a.streetAddress,
-      city: a.city,
-      state: a.state,
-      postal_code: a.postalCode,
-      country: a.country,
-      label: a.label,
-    })),
-    operation_hours: c.operationHours.map((h) => ({
-      id: h.id,
-      day_of_week: h.dayOfWeek,
-      open_time: h.openTime,
-      close_time: h.closeTime,
-    })),
-    phone_numbers: c.phoneNumbers.map((p) => ({
-      id: p.id,
-      phone_number_e164: p.phoneNumberE164,
-      is_verified: p.isVerified,
-      label: p.label,
-    })),
-    faqs: c.faqs.map((f) => ({
-      id: f.id,
-      question: f.question,
-      answer: f.answer,
-    })),
-    offerings: c.offerings.map((o) => ({
-      id: o.id,
-      type: o.type,
-      name: o.name,
-      description: o.description,
-      price_amount: o.priceAmount,
-      price_currency: o.priceCurrency,
-      price_frequency: o.priceFrequency,
-    })),
+    addresses: c.addresses.map(formatAddress),
+    operation_hours: c.operationHours.map(formatOperationHour),
+    phone_numbers: c.phoneNumbers.map(formatPhoneNumber),
+    faqs: c.faqs.map((f) => ({ id: f.id, question: f.question, answer: f.answer })),
+    offerings: c.offerings.map(formatOffering),
     operation_hours_text: formatOperationHoursText(c.operationHours),
     offerings_text: formatOfferingsText(c.offerings),
   };
