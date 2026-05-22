@@ -27,7 +27,7 @@ export class ParticipantDisconnectedCallback {
       log().info({ state, failureReason, identity: participant.identity }, 'Participant disconnected');
       await this.backgroundAudio.close();
       await this.callService.onParticipantDisconnected(this.roomName, participant.identity, state, failureReason);
-    } catch (err: any) {
+    } catch (err) {
       log().error({ err }, 'Failed to handle participant disconnected');
     } finally {
       await this.livekitService.deleteRoom(this.roomName);
