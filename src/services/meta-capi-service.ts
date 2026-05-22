@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createLogger } from '../lib/logger.js';
 
 /**
  * Service for sending server-side conversion events to Meta's Conversions API.
@@ -18,6 +19,8 @@ export interface MetaCapiEvent {
   email: string;
   eventSourceUrl?: string;
 }
+
+const logger = createLogger('meta-capi');
 
 export class MetaCapiServiceImpl implements MetaCapiService {
   private readonly apiUrl: string;
@@ -65,10 +68,10 @@ export class MetaCapiServiceImpl implements MetaCapiService {
 
       if (!response.ok) {
         const body = await response.text();
-        console.error(`Meta CAPI error (${response.status}): ${body}`);
+        logger.error({ status: response.status, body }, 'Meta CAPI error');
       }
     } catch (error) {
-      console.error('Meta CAPI request failed:', error);
+      logger.error({ err: error }, 'Meta CAPI request failed');
     }
   }
 }
@@ -79,6 +82,6 @@ export class MetaCapiServiceImpl implements MetaCapiService {
 export class StubMetaCapiService implements MetaCapiService {
   async sendEvent(event: MetaCapiEvent): Promise<void> {
     const hashedEmail = createHash('sha256').update(event.email.trim().toLowerCase()).digest('hex');
-    console.log(`[StubMetaCapiService] Would send ${event.eventName} for ${hashedEmail}`);
+    logger.info({ eventName: event.eventName, hashedEmail }, 'Stub: would send event');
   }
 }
