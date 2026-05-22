@@ -60,7 +60,7 @@ function mergeAppointmentSettings(existing: AppointmentSettings, input: Appointm
 
 function serializeBot(bot: Bot) {
   const callSettings = bot.callSettings as CallSettings ?? {};
-  const apptSettings = bot.appointmentSettings as AppointmentSettings ?? {};
+  const appointmentSettings = bot.appointmentSettings as AppointmentSettings ?? {};
   return {
     id: bot.id,
     user_id: bot.userId,
@@ -71,9 +71,9 @@ function serializeBot(bot: Bot) {
       primary_language: callSettings.primaryLanguage ?? 'en',
     },
     appointment_settings: {
-      is_enabled: apptSettings.isEnabled ?? false,
-      triggers: apptSettings.triggers ?? null,
-      instructions: apptSettings.instructions ?? null,
+      is_enabled: appointmentSettings.isEnabled ?? false,
+      triggers: appointmentSettings.triggers ?? null,
+      instructions: appointmentSettings.instructions ?? null,
     },
   };
 }
