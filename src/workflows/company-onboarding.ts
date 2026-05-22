@@ -13,7 +13,6 @@ import type { CompanyData } from './company-onboarding/parsers/parser-utils.js';
 import { validateBusinessType } from './company-onboarding/business-types.js';
 import { ExtractOffersAndFAQs } from './extract-offers-and-faqs.js';
 import { ExtractCompany } from './extract-company.js';
-import { Logger } from 'pino';
 import { createLogger } from '../lib/logger.js';
 
 const RETRY_CONFIG = {
@@ -36,7 +35,7 @@ export interface OnboardingResult {
  */
 export class CompanyOnboarding {
 
-  private static logger: Logger = createLogger('company-onboarding');
+  private static logger = createLogger('company-onboarding');
   /**
    * Orchestrates the full company onboarding workflow.
    *
