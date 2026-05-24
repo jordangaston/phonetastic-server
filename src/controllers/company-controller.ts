@@ -8,7 +8,7 @@ import { UserRepository } from '../repositories/user-repository.js';
 import { authGuard } from '../middleware/auth.js';
 import { ForbiddenError, NotFoundError } from '../lib/errors.js';
 import { b } from '../baml_client/index.js';
-import type { Database } from '../db/index.js';
+import type { Database, Transaction } from '../db/index.js';
 import type { Address, Company, Faq, Offering, OperationHours, PhoneNumber } from '../db/models.js';
 import {
   formatOperationHoursText,
@@ -128,7 +128,7 @@ export async function companyController(app: FastifyInstance): Promise<void> {
   async function saveFaqs(
     companyId: number,
     items: Array<{ question: string; answer: string }>,
-    tx: any,
+    tx: Transaction,
   ) {
     await faqRepo.deleteByCompanyId(companyId, tx);
     if (items.length > 0) {
@@ -142,7 +142,7 @@ export async function companyController(app: FastifyInstance): Promise<void> {
   async function saveOfferings(
     companyId: number,
     items: NonNullable<PatchCompanyBody['company']['offerings']>,
-    tx: any,
+    tx: Transaction,
   ) {
     await offeringRepo.deleteByCompanyId(companyId, tx);
     if (items.length > 0) {
