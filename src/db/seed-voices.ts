@@ -165,9 +165,9 @@ async function insertVoices<T extends VoiceSpec>(db: Db, provider: string, specs
   const results = await Promise.allSettled(specs.map(getSnippet));
   const inserted: string[] = [];
   await Promise.all(specs.map(async (voice, i) => {
-    const r = results[i];
-    if (r.status === 'rejected') { console.error(`Failed snippet for ${voice.name}: ${r.reason}`); return; }
-    await db.insert(voices).values({ name: voice.name, externalId: voice.id, provider, snippet: r.value.data, snippetMimeType: r.value.mimeType });
+    const result = results[i];
+    if (result.status === 'rejected') { console.error(`Failed snippet for ${voice.name}: ${result.reason}`); return; }
+    await db.insert(voices).values({ name: voice.name, externalId: voice.id, provider, snippet: result.value.data, snippetMimeType: result.value.mimeType });
     inserted.push(voice.name);
   }));
   if (inserted.length > 0) console.log(`Inserted ${inserted.length} ${provider} voice(s): ${inserted.join(', ')}`);
@@ -177,9 +177,9 @@ async function updateVoices<T extends VoiceSpec>(db: Db, provider: string, specs
   const results = await Promise.allSettled(specs.map(getSnippet));
   const updated: string[] = [];
   await Promise.all(specs.map(async (voice, i) => {
-    const r = results[i];
-    if (r.status === 'rejected') { console.error(`Failed snippet for ${voice.name}: ${r.reason}`); return; }
-    await db.update(voices).set({ name: voice.name, snippet: r.value.data, snippetMimeType: r.value.mimeType }).where(eq(voices.id, idMap.get(voice.id)!));
+    const result = results[i];
+    if (result.status === 'rejected') { console.error(`Failed snippet for ${voice.name}: ${result.reason}`); return; }
+    await db.update(voices).set({ name: voice.name, snippet: result.value.data, snippetMimeType: result.value.mimeType }).where(eq(voices.id, idMap.get(voice.id)!));
     updated.push(voice.name);
   }));
   if (updated.length > 0) console.log(`Updated ${updated.length} ${provider} voice(s): ${updated.join(', ')}`);
