@@ -78,11 +78,11 @@ function to12Hour(time: string): string {
   return `${h}:${min} ${ampm}`;
 }
 
-function currencySymbol(code: string): string {
-  switch (code.toUpperCase()) {
+function currencySymbol(currencyCode: string): string {
+  switch (currencyCode.toUpperCase()) {
     case 'USD': return '$';
     case 'EUR': return '\u20AC';
     case 'GBP': return '\u00A3';
-    default: return `${code} `;
+    default: return `${currencyCode} `;
   }
 }
