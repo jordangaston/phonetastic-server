@@ -61,11 +61,11 @@ async function parseOperationHours(entity: LocalBusinessObject): Promise<Operati
   if (specs.length > 0) {
     const result: OperationHourData[] = [];
     for (const spec of specs) {
-      const s = spec as OpeningHoursSpecification;
-      const opens = str(s.opens);
-      const closes = str(s.closes);
+      const hoursSpec = spec as OpeningHoursSpecification;
+      const opens = str(hoursSpec.opens);
+      const closes = str(hoursSpec.closes);
       if (!opens || !closes) continue;
-      for (const day of asArray(s.dayOfWeek)) {
+      for (const day of asArray(hoursSpec.dayOfWeek)) {
         const dayOfWeek = DAY_TO_INT[String(day)];
         if (dayOfWeek === undefined) continue;
         result.push({ dayOfWeek, openTime: opens, closeTime: closes });
