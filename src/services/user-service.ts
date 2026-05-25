@@ -238,12 +238,12 @@ function shapeBot(bot: Bot | undefined, includeSettings: boolean, phoneNumber: P
     ? { id: phoneNumber.id, e164: phoneNumber.phoneNumberE164, is_verified: phoneNumber.isVerified }
     : null;
   if (!includeSettings) return out;
-  const cs = bot.callSettings ?? {};
+  const callSettings = bot.callSettings ?? {};
   out.bot_settings = {
-    call_greeting_message: cs.callGreetingMessage ?? null,
-    call_goodbye_message: cs.callGoodbyeMessage ?? null,
+    call_greeting_message: callSettings.callGreetingMessage ?? null,
+    call_goodbye_message: callSettings.callGoodbyeMessage ?? null,
     voice_id: bot.voiceId,
-    primary_language: cs.primaryLanguage ?? 'en',
+    primary_language: callSettings.primaryLanguage ?? 'en',
   };
   return out;
 }
