@@ -142,11 +142,11 @@ export function parsePhoneNumbers(entity: { telephone?: unknown; contactPoint?: 
   }
 
   for (const cp of asArray(entity.contactPoint as unknown)) {
-    const c = cp as { telephone?: unknown; contactType?: unknown };
-    const phone = str(c.telephone);
+    const contactPoint = cp as { telephone?: unknown; contactType?: unknown };
+    const phone = str(contactPoint.telephone);
     if (!phone) continue;
     try {
-      const label = str(c.contactType) ?? 'main';
+      const label = str(contactPoint.contactType) ?? 'main';
       result.push({ phoneNumberE164: toE164(phone), label });
     } catch { /* skip */ }
   }
