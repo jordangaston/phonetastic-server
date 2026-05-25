@@ -248,19 +248,19 @@ function shapeBot(bot: Bot | undefined, includeSettings: boolean, phoneNumber: P
   return out;
 }
 
-function shapeCompany(c: CompanyWithRelations | undefined) {
-  if (!c) return null;
+function shapeCompany(company: CompanyWithRelations | undefined) {
+  if (!company) return null;
   return {
-    id: c.id,
-    name: c.name,
-    business_type: c.businessType ?? null,
-    website: c.website ?? null,
-    emails: c.emails ?? [],
-    operation_hours: c.operationHours.map((h) => ({
+    id: company.id,
+    name: company.name,
+    business_type: company.businessType ?? null,
+    website: company.website ?? null,
+    emails: company.emails ?? [],
+    operation_hours: company.operationHours.map((h) => ({
       id: h.id, day_of_week: h.dayOfWeek, open_time: h.openTime, close_time: h.closeTime,
     })),
-    offerings: c.offerings.map((o) => ({ id: o.id, name: o.name, description: o.description, type: o.type })),
-    faqs: c.faqs.map((f) => ({ id: f.id, question: f.question, answer: f.answer })),
+    offerings: company.offerings.map((o) => ({ id: o.id, name: o.name, description: o.description, type: o.type })),
+    faqs: company.faqs.map((f) => ({ id: f.id, question: f.question, answer: f.answer })),
   };
 }
 
