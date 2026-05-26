@@ -8,7 +8,7 @@ import { CompanyRepository } from '../repositories/company-repository.js';
 import { EndUserRepository } from '../repositories/end-user-repository.js';
 import { UserRepository } from '../repositories/user-repository.js';
 import { BadRequestError, NotFoundError } from '../lib/errors.js';
-import type { Database } from '../db/index.js';
+import type { Database, Transaction } from '../db/index.js';
 import type { ChatChannel } from '../db/schema/enums.js';
 import type { ReceivedEmail } from './resend-service.js';
 
@@ -145,28 +145,13 @@ export class ChatService {
 
     return this.db.transaction(async (tx) => {
       const email = await this.emailRepo.create({
-        chatId: chat.id,
-        direction: 'outbound',
-        userId,
-        bodyText,
-        status: 'pending',
+        chatId: chat.id, direction: 'outbound', userId, bodyText, status: 'pending',
       }, tx);
 
-      const createdAttachments = [];
-      if (attachmentData) {
-        for (const att of attachmentData) {
-          const row = await this.attachmentRepo.create({
-            emailId: email.id,
-            filename: att.filename,
-            contentType: att.contentType,
-          }, tx);
-          createdAttachments.push(row);
-        }
-      }
-
+      const attachments = await this.createAttachments(email.id, attachmentData, tx);
       await this.chatRepo.update(chat.id, { botEnabled: false, updatedAt: new Date() }, tx);
 
-      return { ...email, attachments: createdAttachments };
+      return { ...email, attachments };
     });
   }
 
@@ -189,6 +174,19 @@ export class ChatService {
     if (!chat || chat.companyId !== companyId) throw new NotFoundError('Chat not found');
 
     return this.emailRepo.findAllByChatId(chatId, { ...opts, expand: ['attachments'] });
+  }
+
+  private async createAttachments(
+    emailId: number,
+    attachmentData: { filename: string; contentType: string; content: string }[] | undefined,
+    tx: Transaction,
+  ) {
+    if (!attachmentData) return [];
+    const rows = [];
+    for (const att of attachmentData) {
+      rows.push(await this.attachmentRepo.create({ emailId, filename: att.filename, contentType: att.contentType }, tx));
+    }
+    return rows;
   }
 
   /**
