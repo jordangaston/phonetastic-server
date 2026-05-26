@@ -164,26 +164,24 @@ async function formatEmail(email: {
   createdAt: Date;
   attachments: { id: number; filename: string; contentType: string; sizeBytes: number | null; storageKey: string | null }[];
 }, storageService: StorageService) {
-  const attachments = await Promise.all(email.attachments.map(async (a) => ({
+  const attachments = await formatAttachments(email.attachments, storageService);
+  return {
+    id: email.id, chat_id: email.chatId, direction: email.direction, status: email.status,
+    end_user_id: email.endUserId, bot_id: email.botId, user_id: email.userId,
+    subject: email.subject, body_text: email.bodyText, body_html: email.bodyHtml,
+    attachments, created_at: email.createdAt,
+  };
+}
+
+function formatAttachments(
+  attachments: { id: number; filename: string; contentType: string; sizeBytes: number | null; storageKey: string | null }[],
+  storageService: StorageService,
+) {
+  return Promise.all(attachments.map(async (a) => ({
     id: a.id,
     filename: a.filename,
     content_type: a.contentType,
     size_bytes: a.sizeBytes,
     url: a.storageKey ? await storageService.getPresignedUrl(a.storageKey) : null,
   })));
-
-  return {
-    id: email.id,
-    chat_id: email.chatId,
-    direction: email.direction,
-    status: email.status,
-    end_user_id: email.endUserId,
-    bot_id: email.botId,
-    user_id: email.userId,
-    subject: email.subject,
-    body_text: email.bodyText,
-    body_html: email.bodyHtml,
-    attachments,
-    created_at: email.createdAt,
-  };
 }
