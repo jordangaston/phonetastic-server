@@ -27,7 +27,7 @@ export function createCompanyInfoTool(companyId: number) {
       },
       required: ['query'],
     },
-    execute: async (params: { query: string }, { ctx }) => {
+    execute: async (params: { query: string }) => {
       try {
         const embeddingService = container.resolve<EmbeddingService>('EmbeddingService');
         const faqRepo = container.resolve<FaqRepository>('FaqRepository');
