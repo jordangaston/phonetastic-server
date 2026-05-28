@@ -49,6 +49,19 @@ export interface PhoneNumberData {
 }
 
 export const JSON_LD_SCRIPT_RE = /<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+/**
+ * Extracts the text content of all `<script type="application/ld+json">` blocks from HTML.
+ *
+ * @param html - Raw HTML string.
+ * @returns Array of non-empty, trimmed JSON strings.
+ */
+export function extractScriptBlocks(html: string): string[] {
+  return [...html.matchAll(JSON_LD_SCRIPT_RE)]
+    .map(([, content]) => content?.trim() ?? '')
+    .filter(Boolean);
+}
+
 const EMAIL_REGEX = /.+@.+\..+/;
 
 export function stripHtml(value: string): string {
