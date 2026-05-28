@@ -192,7 +192,7 @@ export class UserService {
   }
 
   private async loadExpands(user: User, expand?: string[], preloaded: { bot?: Bot } = {}): Promise<Expansions> {
-    const want = (key: string) => expand?.includes(key) ?? false;
+    const want = wantExpand(expand);
     const needsBot = want('bot') || want('bot_settings');
     const [bot, company, calendar, phoneNumber] = await Promise.all([
       preloaded.bot ? Promise.resolve(preloaded.bot) : (needsBot ? this.botRepo.findByUserId(user.id) : Promise.resolve(undefined)),
@@ -210,7 +210,7 @@ export class UserService {
   }
 
   private buildResponse(user: User, auth: unknown, expands: Expansions, expand?: string[]) {
-    const want = (key: string) => expand?.includes(key) ?? false;
+    const want = wantExpand(expand);
     const response: Record<string, any> = { user: { id: user.id, first_name: user.firstName, last_name: user.lastName } };
     if (auth) response.auth = auth;
     if (want('call_settings')) response.user.call_settings = shapeCallSettings(user.callSettings);
@@ -220,6 +220,10 @@ export class UserService {
     if (want('phone_number')) response.user.phone_number = shapePhoneNumber(expands.phoneNumber);
     return response;
   }
+}
+
+function wantExpand(expand?: string[]) {
+  return (key: string) => expand?.includes(key) ?? false;
 }
 
 function shapeCallSettings(cs: User['callSettings'] | null | undefined) {
