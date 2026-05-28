@@ -1,5 +1,6 @@
 import {
   JSON_LD_SCRIPT_RE,
+  findJsonLdEntity,
   str,
   asArray,
   type CompanyData,
@@ -11,20 +12,6 @@ function isWebPage(entity: unknown): entity is WebPageObject {
   if (typeof entity !== 'object' || entity === null) return false;
   const types = asArray((entity as Record<string, unknown>)['@type']);
   return types.some((t) => t === 'WebPage');
-}
-
-function findWebPage(parsed: unknown): WebPageObject | null {
-  if (typeof parsed !== 'object' || parsed === null) return null;
-  if (Array.isArray(parsed)) {
-    for (const item of parsed) {
-      const found = findWebPage(item);
-      if (found) return found;
-    }
-    return null;
-  }
-  const obj = parsed as Record<string, unknown>;
-  if ('@graph' in obj) return findWebPage(obj['@graph']);
-  return isWebPage(obj) ? obj : null;
 }
 
 /**
@@ -46,7 +33,7 @@ export async function parseWebPageData(html: string): Promise<CompanyData | null
 
   for (const block of scriptBlocks) {
     try {
-      const entity = findWebPage(JSON.parse(block));
+      const entity = findJsonLdEntity(JSON.parse(block), isWebPage);
       if (entity) {
         return {
           name: str(entity['name']),

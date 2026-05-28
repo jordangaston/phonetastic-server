@@ -49,6 +49,28 @@ export interface PhoneNumberData {
 }
 
 export const JSON_LD_SCRIPT_RE = /<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+/**
+ * Recursively searches a parsed JSON-LD structure for the first entity matching a predicate.
+ * Handles plain objects, arrays, and `@graph` containers.
+ *
+ * @param parsed - The parsed JSON value to search.
+ * @param predicate - Returns true for the target entity type.
+ * @returns The first matching entity, or null.
+ */
+export function findJsonLdEntity<T>(parsed: unknown, predicate: (v: unknown) => v is T): T | null {
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      const found = findJsonLdEntity(item, predicate);
+      if (found) return found;
+    }
+    return null;
+  }
+  const obj = parsed as Record<string, unknown>;
+  if ('@graph' in obj) return findJsonLdEntity(obj['@graph'], predicate);
+  return predicate(obj) ? obj : null;
+}
+
 const EMAIL_REGEX = /.+@.+\..+/;
 
 export function stripHtml(value: string): string {
