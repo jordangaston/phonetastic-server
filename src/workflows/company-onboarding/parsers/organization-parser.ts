@@ -1,5 +1,6 @@
 import {
   JSON_LD_SCRIPT_RE,
+  findJsonLdEntity,
   str,
   asArray,
   parseAddress,
@@ -14,20 +15,6 @@ function isOrganization(entity: unknown): entity is OrganizationObject {
   if (typeof entity !== 'object' || entity === null) return false;
   const types = asArray((entity as Record<string, unknown>)['@type']);
   return types.some((t) => t === 'Organization');
-}
-
-function findOrganization(parsed: unknown): OrganizationObject | null {
-  if (typeof parsed !== 'object' || parsed === null) return null;
-  if (Array.isArray(parsed)) {
-    for (const item of parsed) {
-      const found = findOrganization(item);
-      if (found) return found;
-    }
-    return null;
-  }
-  const obj = parsed as Record<string, unknown>;
-  if ('@graph' in obj) return findOrganization(obj['@graph']);
-  return isOrganization(obj) ? obj : null;
 }
 
 function parseName(entity: OrganizationObject): string | null {
@@ -54,7 +41,7 @@ export async function parseOrganizationData(html: string): Promise<CompanyData |
 
   for (const block of scriptBlocks) {
     try {
-      const entity = findOrganization(JSON.parse(block));
+      const entity = findJsonLdEntity(JSON.parse(block), isOrganization);
       if (entity) {
         return {
           name: parseName(entity),

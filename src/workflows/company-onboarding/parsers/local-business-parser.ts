@@ -7,6 +7,7 @@ import { createLogger } from '../../../lib/logger.js';
 const logger = createLogger('local-business-parser');
 import {
   JSON_LD_SCRIPT_RE,
+  findJsonLdEntity,
   str,
   asArray,
   parseAddress,
@@ -36,20 +37,6 @@ function isLocalBusiness(entity: unknown): entity is LocalBusinessObject {
   if (typeof entity !== 'object' || entity === null) return false;
   const types = asArray((entity as Record<string, unknown>)['@type']);
   return types.some((t) => typeof t === 'string' && LOCAL_BUSINESS_TYPES.has(t));
-}
-
-function findLocalBusiness(parsed: unknown): LocalBusinessObject | null {
-  if (typeof parsed !== 'object' || parsed === null) return null;
-  if (Array.isArray(parsed)) {
-    for (const item of parsed) {
-      const found = findLocalBusiness(item);
-      if (found) return found;
-    }
-    return null;
-  }
-  const obj = parsed as Record<string, unknown>;
-  if ('@graph' in obj) return findLocalBusiness(obj['@graph']);
-  return isLocalBusiness(obj) ? obj : null;
 }
 
 function parseName(entity: LocalBusinessObject): string | null {
@@ -105,7 +92,7 @@ export async function parseLocalBusinessData(html: string): Promise<CompanyData 
 
   for (const block of scriptBlocks) {
     try {
-      const entity = findLocalBusiness(JSON.parse(block));
+      const entity = findJsonLdEntity(JSON.parse(block), isLocalBusiness);
       if (entity) {
         return {
           name: parseName(entity),
