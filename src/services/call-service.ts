@@ -359,13 +359,12 @@ export class CallService {
   private async tryResolveContact(fromE164: string, companyId: number, endUserId: number): Promise<void> {
     try {
       const contact = await this.contactService.resolveContact(fromE164, companyId);
-      if (contact?.firstName || contact?.lastName || contact?.email) {
-        await this.endUserRepo.updateFromContact(endUserId, {
-          firstName: contact.firstName ?? undefined,
-          lastName: contact.lastName ?? undefined,
-          email: contact.email ?? undefined,
-        });
-      }
+      if (!contact?.firstName && !contact?.lastName && !contact?.email) return;
+      await this.endUserRepo.updateFromContact(endUserId, {
+        firstName: contact.firstName ?? undefined,
+        lastName: contact.lastName ?? undefined,
+        email: contact.email ?? undefined,
+      });
     } catch (err) {
       logger.warn({ err, fromE164, companyId, endUserId }, 'Contact resolution failed; continuing without contact data');
     }
