@@ -1,5 +1,7 @@
 import { Resend } from 'resend';
 
+const BASE_DOMAIN = 'phonetastic.ai';
+
 /**
  * Describes a DNS record required for domain verification.
  */
@@ -55,7 +57,7 @@ export class ResendDomainServiceImpl implements ResendDomainService {
 
   /** {@inheritDoc ResendDomainService.createDomain} */
   async createDomain(subdomain: string): Promise<{ id: string; records: DnsRecord[] }> {
-    const { data, error } = await this.client.domains.create({ name: `${subdomain}.phonetastic.ai` });
+    const { data, error } = await this.client.domains.create({ name: `${subdomain}.${BASE_DOMAIN}` });
     if (error) throw new Error(`Resend createDomain failed: ${error.message}`);
     const records = (data!.records ?? []).map((r: any) => ({
       type: r.type,
@@ -91,8 +93,8 @@ export class StubResendDomainService implements ResendDomainService {
     this.counter++;
     const id = `domain-${this.counter}`;
     const records: DnsRecord[] = [
-      { type: 'MX', name: `${subdomain}.phonetastic.ai`, value: 'feedback-smtp.us-east-1.amazonses.com', priority: 10 },
-      { type: 'TXT', name: `${subdomain}.phonetastic.ai`, value: 'v=spf1 include:amazonses.com ~all' },
+      { type: 'MX', name: `${subdomain}.${BASE_DOMAIN}`, value: 'feedback-smtp.us-east-1.amazonses.com', priority: 10 },
+      { type: 'TXT', name: `${subdomain}.${BASE_DOMAIN}`, value: 'v=spf1 include:amazonses.com ~all' },
     ];
     this.domains.set(id, { status: 'not_started', records });
     return { id, records };
