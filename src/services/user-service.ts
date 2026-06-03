@@ -192,13 +192,12 @@ export class UserService {
   }
 
   private async loadExpands(user: User, expand?: string[], preloaded: { bot?: Bot } = {}): Promise<Expansions> {
-    const want = (key: string) => expand?.includes(key) ?? false;
-    const needsBot = want('bot') || want('bot_settings');
+    const needsBot = wantExpand(expand, 'bot') || wantExpand(expand, 'bot_settings');
     const [bot, company, calendar, phoneNumber] = await Promise.all([
       preloaded.bot ? Promise.resolve(preloaded.bot) : (needsBot ? this.botRepo.findByUserId(user.id) : Promise.resolve(undefined)),
-      want('company') && user.companyId ? this.companyRepo.findWithRelations(user.companyId) : Promise.resolve(undefined),
-      want('calendar') ? this.calendarRepo.findByUserId(user.id) : Promise.resolve(undefined),
-      want('phone_number') ? this.phoneNumberRepo.findByUserId(user.id) : Promise.resolve(undefined),
+      wantExpand(expand, 'company') && user.companyId ? this.companyRepo.findWithRelations(user.companyId) : Promise.resolve(undefined),
+      wantExpand(expand, 'calendar') ? this.calendarRepo.findByUserId(user.id) : Promise.resolve(undefined),
+      wantExpand(expand, 'phone_number') ? this.phoneNumberRepo.findByUserId(user.id) : Promise.resolve(undefined),
     ]);
     const botPhoneNumber = needsBot && bot ? await this.phoneNumberRepo.findByBotId(bot.id) : undefined;
     return { bot, botPhoneNumber, company, calendar, phoneNumber };
@@ -210,16 +209,19 @@ export class UserService {
   }
 
   private buildResponse(user: User, auth: unknown, expands: Expansions, expand?: string[]) {
-    const want = (key: string) => expand?.includes(key) ?? false;
     const response: Record<string, any> = { user: { id: user.id, first_name: user.firstName, last_name: user.lastName } };
     if (auth) response.auth = auth;
-    if (want('call_settings')) response.user.call_settings = shapeCallSettings(user.callSettings);
-    if (want('bot') || want('bot_settings')) response.user.bot = shapeBot(expands.bot, want('bot_settings'), expands.botPhoneNumber);
-    if (want('company')) response.user.company = shapeCompany(expands.company);
-    if (want('calendar')) response.user.calendar = shapeCalendar(expands.calendar);
-    if (want('phone_number')) response.user.phone_number = shapePhoneNumber(expands.phoneNumber);
+    if (wantExpand(expand, 'call_settings')) response.user.call_settings = shapeCallSettings(user.callSettings);
+    if (wantExpand(expand, 'bot') || wantExpand(expand, 'bot_settings')) response.user.bot = shapeBot(expands.bot, wantExpand(expand, 'bot_settings'), expands.botPhoneNumber);
+    if (wantExpand(expand, 'company')) response.user.company = shapeCompany(expands.company);
+    if (wantExpand(expand, 'calendar')) response.user.calendar = shapeCalendar(expands.calendar);
+    if (wantExpand(expand, 'phone_number')) response.user.phone_number = shapePhoneNumber(expands.phoneNumber);
     return response;
   }
+}
+
+function wantExpand(expand: string[] | undefined, key: string): boolean {
+  return expand?.includes(key) ?? false;
 }
 
 function shapeCallSettings(cs: User['callSettings'] | null | undefined) {
