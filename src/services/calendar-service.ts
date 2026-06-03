@@ -224,9 +224,8 @@ function getOpenWindows(
       const close = applyTimeToDate(current, oh.closeTime);
       const windowStart = new Date(Math.max(open.getTime(), rangeStart.getTime()));
       const windowEnd = new Date(Math.min(close.getTime(), rangeEnd.getTime()));
-      if (windowStart < windowEnd) {
-        windows.push({ start: windowStart, end: windowEnd });
-      }
+      if (windowStart >= windowEnd) continue;
+      windows.push({ start: windowStart, end: windowEnd });
     }
 
     current.setUTCDate(current.getUTCDate() + 1);
