@@ -195,6 +195,18 @@ function addSlots(slots: TimeSlot[], from: number, to: number, durationMs: numbe
   }
 }
 
+function groupHoursByDay(
+  operationHours: Array<{ dayOfWeek: number; openTime: string; closeTime: string }>,
+): Map<number, Array<{ openTime: string; closeTime: string }>> {
+  const hoursByDay = new Map<number, Array<{ openTime: string; closeTime: string }>>();
+  for (const oh of operationHours) {
+    const existing = hoursByDay.get(oh.dayOfWeek) ?? [];
+    existing.push(oh);
+    hoursByDay.set(oh.dayOfWeek, existing);
+  }
+  return hoursByDay;
+}
+
 function getOpenWindows(
   rangeStart: Date,
   rangeEnd: Date,
@@ -204,20 +216,13 @@ function getOpenWindows(
     return [{ start: rangeStart, end: rangeEnd }];
   }
 
-  const hoursByDay = new Map<number, Array<{ openTime: string; closeTime: string }>>();
-  for (const oh of operationHours) {
-    const existing = hoursByDay.get(oh.dayOfWeek) ?? [];
-    existing.push(oh);
-    hoursByDay.set(oh.dayOfWeek, existing);
-  }
-
+  const hoursByDay = groupHoursByDay(operationHours);
   const windows: Array<{ start: Date; end: Date }> = [];
   const current = new Date(rangeStart);
   current.setUTCHours(0, 0, 0, 0);
 
   while (current < rangeEnd) {
-    const dayOfWeek = current.getUTCDay();
-    const dayHours = hoursByDay.get(dayOfWeek) ?? [];
+    const dayHours = hoursByDay.get(current.getUTCDay()) ?? [];
 
     for (const oh of dayHours) {
       const open = applyTimeToDate(current, oh.openTime);
