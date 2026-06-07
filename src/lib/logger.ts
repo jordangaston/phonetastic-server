@@ -1,4 +1,4 @@
-import pino, { type Logger, type TransportTargetOptions } from 'pino';
+import pino, { type Logger } from 'pino';
 
 /**
  * Creates a named Pino logger configured for the current environment.
