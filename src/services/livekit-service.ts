@@ -139,7 +139,6 @@ interface PurchaseNumberResponse {
  * @postcondition Rooms are created via RoomServiceClient; tokens dispatch the voice agent on join.
  */
 export class LiveKitServiceImpl implements LiveKitService {
-  private readonly url: string;
   private readonly httpUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
@@ -151,7 +150,6 @@ export class LiveKitServiceImpl implements LiveKitService {
    * @param apiSecret - LiveKit API secret.
    */
   constructor(url: string, apiKey: string, apiSecret: string) {
-    this.url = url;
     this.httpUrl = url.replace('wss://', 'https://').replace('ws://', 'http://');
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
