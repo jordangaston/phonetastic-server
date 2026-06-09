@@ -76,10 +76,14 @@ export class SubdomainService {
    * @returns A subdomain string like "bright-fox-42".
    */
   private generateSubdomain(): string {
-    const adjective = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
-    const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+    const adjective = this.pickRandom(ADJECTIVES);
+    const noun = this.pickRandom(NOUNS);
     const suffix = Math.floor(Math.random() * 100);
     return `${adjective}-${noun}-${suffix}`;
+  }
+
+  private pickRandom<T>(items: readonly T[]): T {
+    return items[Math.floor(Math.random() * items.length)];
   }
 
   /**
