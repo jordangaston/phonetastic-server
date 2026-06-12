@@ -22,6 +22,7 @@ export const processInboundEmailQueue = new WorkflowQueue('process-inbound-email
 
 const MAX_SUMMARIZE_SIZE = 10 * 1024 * 1024;
 const MAX_AGENT_TURNS = 5;
+const SUMMARY_TRIGGER_EMAIL_COUNT = 2;
 
 /** Serializable attachment metadata for summarization results. */
 interface AttachmentSumResult {
@@ -78,7 +79,7 @@ export class ProcessInboundEmail {
     DBOS.logger.debug({ msg: 'Reply sent', chatId });
 
     const emailCount = await ProcessInboundEmail.countEmails(chatId);
-    if (emailCount > 2) {
+    if (emailCount > SUMMARY_TRIGGER_EMAIL_COUNT) {
       await DBOS.startWorkflow(UpdateChatSummary).run(chatId);
     }
   }
