@@ -56,36 +56,38 @@ function parseName(entity: LocalBusinessObject): string | null {
   return str(entity['name']) ?? str(entity['legalName']);
 }
 
-async function parseOperationHours(entity: LocalBusinessObject): Promise<OperationHourData[]> {
-  const specs = asArray(entity['openingHoursSpecification']);
-  if (specs.length > 0) {
-    const result: OperationHourData[] = [];
-    for (const spec of specs) {
-      const s = spec as OpeningHoursSpecification;
-      const opens = str(s.opens);
-      const closes = str(s.closes);
-      if (!opens || !closes) continue;
-      for (const day of asArray(s.dayOfWeek)) {
-        const dayOfWeek = DAY_TO_INT[String(day)];
-        if (dayOfWeek === undefined) continue;
-        result.push({ dayOfWeek, openTime: opens, closeTime: closes });
-      }
+function parseHoursFromSpecs(specs: unknown[]): OperationHourData[] {
+  const result: OperationHourData[] = [];
+  for (const spec of specs) {
+    const s = spec as OpeningHoursSpecification;
+    const opens = str(s.opens);
+    const closes = str(s.closes);
+    if (!opens || !closes) continue;
+    for (const day of asArray(s.dayOfWeek)) {
+      const dayOfWeek = DAY_TO_INT[String(day)];
+      if (dayOfWeek === undefined) continue;
+      result.push({ dayOfWeek, openTime: opens, closeTime: closes });
     }
-    return result;
   }
+  return result;
+}
 
-  const text = str(entity['openingHours']);
-  if (!text) return [];
-
+async function parseHoursFromText(text: string): Promise<OperationHourData[]> {
   const fromText = parseOpeningHoursText(text);
   if (fromText.length > 0) return fromText;
-
   try {
     return await b.ParseOperationHours(text);
   } catch (err) {
-    logger.error({ err }, 'ParseOperationHours failed on all clients — returning empty hours');
+    logger.error({ err }, 'ParseOperationHours failed — returning empty hours');
     return [];
   }
+}
+
+async function parseOperationHours(entity: LocalBusinessObject): Promise<OperationHourData[]> {
+  const specs = asArray(entity['openingHoursSpecification']);
+  if (specs.length > 0) return parseHoursFromSpecs(specs);
+  const text = str(entity['openingHours']);
+  return text ? parseHoursFromText(text) : [];
 }
 
 /**
