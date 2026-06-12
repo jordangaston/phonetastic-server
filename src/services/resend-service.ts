@@ -111,22 +111,23 @@ export class ResendServiceImpl implements ResendService {
   async getReceivedEmail(emailId: string): Promise<ReceivedEmail> {
     const { data, error } = await this.client.emails.receiving.get(emailId);
     if (error) throw new Error(`Resend getReceivedEmail failed: ${error.message}`);
+    if (!data) throw new Error(`Resend getReceivedEmail returned no data for ${emailId}`);
 
-    const headers = data!.headers ?? {};
-    const references = headers['references']?.split(/\s+/).filter(Boolean);
-    const forwardedTo = headers['x-forwarded-to'] || headers['delivered-to'] || undefined;
+    const emailHeaders = data.headers ?? {};
+    const references = emailHeaders['references']?.split(/\s+/).filter(Boolean);
+    const forwardedTo = emailHeaders['x-forwarded-to'] || emailHeaders['delivered-to'] || undefined;
 
     return {
-      from: data!.from,
-      to: data!.to,
-      subject: data!.subject,
-      text: data!.text ?? '',
-      html: data!.html ?? '',
-      messageId: data!.message_id,
-      inReplyTo: headers['in-reply-to'] || undefined,
+      from: data.from,
+      to: data.to,
+      subject: data.subject,
+      text: data.text ?? '',
+      html: data.html ?? '',
+      messageId: data.message_id,
+      inReplyTo: emailHeaders['in-reply-to'] || undefined,
       references: references?.length ? references : undefined,
       forwardedTo,
-      attachments: data!.attachments.map((a) => ({
+      attachments: data.attachments.map((a) => ({
         id: a.id,
         filename: a.filename ?? 'attachment',
         contentType: a.content_type,
