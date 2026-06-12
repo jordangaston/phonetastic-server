@@ -112,10 +112,7 @@ export class ResendServiceImpl implements ResendService {
     const { data, error } = await this.client.emails.receiving.get(emailId);
     if (error) throw new Error(`Resend getReceivedEmail failed: ${error.message}`);
 
-    const headers = data!.headers ?? {};
-    const references = headers['references']?.split(/\s+/).filter(Boolean);
-    const forwardedTo = headers['x-forwarded-to'] || headers['delivered-to'] || undefined;
-
+    const { inReplyTo, references, forwardedTo } = this.parseEmailHeaders(data!.headers ?? {});
     return {
       from: data!.from,
       to: data!.to,
@@ -123,14 +120,19 @@ export class ResendServiceImpl implements ResendService {
       text: data!.text ?? '',
       html: data!.html ?? '',
       messageId: data!.message_id,
-      inReplyTo: headers['in-reply-to'] || undefined,
-      references: references?.length ? references : undefined,
+      inReplyTo,
+      references,
       forwardedTo,
-      attachments: data!.attachments.map((a) => ({
-        id: a.id,
-        filename: a.filename ?? 'attachment',
-        contentType: a.content_type,
-      })),
+      attachments: data!.attachments.map((a) => ({ id: a.id, filename: a.filename ?? 'attachment', contentType: a.content_type })),
+    };
+  }
+
+  private parseEmailHeaders(headers: Record<string, string>) {
+    const refs = headers['references']?.split(/\s+/).filter(Boolean);
+    return {
+      inReplyTo: headers['in-reply-to'] || undefined,
+      references: refs?.length ? refs : undefined,
+      forwardedTo: headers['x-forwarded-to'] || headers['delivered-to'] || undefined,
     };
   }
 
