@@ -5,6 +5,7 @@ import { CompanyRepository } from '../repositories/company-repository.js';
 import { BadRequestError, ConflictError } from '../lib/errors.js';
 
 const EMAIL_DOMAIN = 'mail.phonetastic.ai';
+const MAX_SUFFIX_ATTEMPTS = 100;
 
 /**
  * Orchestrates email address creation and listing for companies.
@@ -59,6 +60,7 @@ export class EmailAddressService {
    *
    * @param companyName - The company name to slugify.
    * @returns A unique email address string.
+   * @throws {Error} If uniqueness cannot be achieved after MAX_SUFFIX_ATTEMPTS.
    */
   private async generateUniqueAddress(companyName: string): Promise<string> {
     const slug = this.slugify(companyName);
@@ -67,13 +69,12 @@ export class EmailAddressService {
     const existing = await this.emailAddressRepo.findByAddress(candidate);
     if (!existing) return candidate;
 
-    let suffix = 2;
-    while (true) {
+    for (let suffix = 2; suffix < 2 + MAX_SUFFIX_ATTEMPTS; suffix++) {
       const suffixed = `${slug}-${suffix}@${EMAIL_DOMAIN}`;
       const found = await this.emailAddressRepo.findByAddress(suffixed);
       if (!found) return suffixed;
-      suffix++;
     }
+    throw new Error('Failed to generate unique email address');
   }
 
   /**
