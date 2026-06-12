@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
+const EMBEDDING_DIMENSION = 1536;
 const OPENAI_EMBEDDINGS_URL = 'https://api.openai.com/v1/embeddings';
 
 /**
@@ -61,6 +62,6 @@ export class OpenAIEmbeddingService implements EmbeddingService {
 export class StubEmbeddingService implements EmbeddingService {
   /** @inheritdoc */
   async embed(texts: string[]): Promise<number[][]> {
-    return texts.map(() => new Array<number>(1536).fill(0));
+    return texts.map(() => new Array<number>(EMBEDDING_DIMENSION).fill(0));
   }
 }
