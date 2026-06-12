@@ -25,17 +25,17 @@ export function formatOperationHoursText(hours: OperationHourRow[]): string {
   const sorted = [...hours].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
   const groups: Array<{ days: number[]; open: string; close: string }> = [];
 
-  for (const h of sorted) {
+  for (const entry of sorted) {
     const last = groups[groups.length - 1];
     const isConsecutive = last
-      && last.open === h.openTime
-      && last.close === h.closeTime
-      && last.days[last.days.length - 1] === h.dayOfWeek - 1;
+      && last.open === entry.openTime
+      && last.close === entry.closeTime
+      && last.days[last.days.length - 1] === entry.dayOfWeek - 1;
 
     if (isConsecutive) {
-      last.days.push(h.dayOfWeek);
+      last.days.push(entry.dayOfWeek);
     } else {
-      groups.push({ days: [h.dayOfWeek], open: h.openTime, close: h.closeTime });
+      groups.push({ days: [entry.dayOfWeek], open: entry.openTime, close: entry.closeTime });
     }
   }
 
@@ -70,12 +70,12 @@ export function formatOfferingsText(offerings: OfferingRow[]): string {
  * Converts 24-hour "HH:MM" to 12-hour "H:MM AM/PM".
  */
 function to12Hour(time: string): string {
-  const [hStr, min] = time.split(':');
-  let h = parseInt(hStr, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  if (h === 0) h = 12;
-  else if (h > 12) h -= 12;
-  return `${h}:${min} ${ampm}`;
+  const [hourStr, min] = time.split(':');
+  let hour = parseInt(hourStr, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  if (hour === 0) hour = 12;
+  else if (hour > 12) hour -= 12;
+  return `${hour}:${min} ${ampm}`;
 }
 
 function currencySymbol(code: string): string {
