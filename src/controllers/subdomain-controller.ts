@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { container } from 'tsyringe';
 import { SubdomainService } from '../services/subdomain-service.js';
 import { authGuard } from '../middleware/auth.js';
+import type { Subdomain } from '../db/models.js';
 
 /**
  * Registers subdomain routes on the Fastify instance.
@@ -32,7 +33,7 @@ export async function subdomainController(app: FastifyInstance): Promise<void> {
   );
 }
 
-function formatSubdomain(s: any) {
+function formatSubdomain(s: Subdomain) {
   return {
     id: s.id,
     subdomain: s.subdomain,
