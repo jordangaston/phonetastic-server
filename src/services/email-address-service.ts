@@ -5,6 +5,7 @@ import { CompanyRepository } from '../repositories/company-repository.js';
 import { BadRequestError, ConflictError } from '../lib/errors.js';
 
 const EMAIL_DOMAIN = 'mail.phonetastic.ai';
+const MAX_SLUG_ATTEMPTS = 100;
 
 /**
  * Orchestrates email address creation and listing for companies.
@@ -67,13 +68,12 @@ export class EmailAddressService {
     const existing = await this.emailAddressRepo.findByAddress(candidate);
     if (!existing) return candidate;
 
-    let suffix = 2;
-    while (true) {
+    for (let suffix = 2; suffix < MAX_SLUG_ATTEMPTS + 2; suffix++) {
       const suffixed = `${slug}-${suffix}@${EMAIL_DOMAIN}`;
       const found = await this.emailAddressRepo.findByAddress(suffixed);
       if (!found) return suffixed;
-      suffix++;
     }
+    throw new Error('Failed to generate unique email address');
   }
 
   /**
