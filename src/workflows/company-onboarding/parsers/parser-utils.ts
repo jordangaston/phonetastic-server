@@ -118,8 +118,8 @@ export function parseEmail(entity: { email?: unknown; contactPoint?: unknown }):
   const top = str(entity.email);
   if (top && EMAIL_REGEX.test(top)) return top;
 
-  for (const cp of asArray(entity.contactPoint as unknown)) {
-    const email = str((cp as { email?: unknown }).email);
+  for (const contactPoint of asArray(entity.contactPoint as unknown)) {
+    const email = str((contactPoint as { email?: unknown }).email);
     if (email && EMAIL_REGEX.test(email)) return email;
   }
 
@@ -141,8 +141,8 @@ export function parsePhoneNumbers(entity: { telephone?: unknown; contactPoint?: 
     try { result.push({ phoneNumberE164: toE164(topPhone), label: 'main' }); } catch { /* skip */ }
   }
 
-  for (const cp of asArray(entity.contactPoint as unknown)) {
-    const c = cp as { telephone?: unknown; contactType?: unknown };
+  for (const contactPoint of asArray(entity.contactPoint as unknown)) {
+    const c = contactPoint as { telephone?: unknown; contactType?: unknown };
     const phone = str(c.telephone);
     if (!phone) continue;
     try {
