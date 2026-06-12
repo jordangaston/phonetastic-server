@@ -33,13 +33,14 @@ export async function botSettingsController(app: FastifyInstance): Promise<void>
       ...(bot_settings.voice_id !== undefined && { voiceId: bot_settings.voice_id }),
       callSettings,
     });
+    if (!updated) throw new NotFoundError('Bot not found after update');
 
-    const updatedCallSettings = updated!.callSettings as CallSettings;
+    const updatedCallSettings = updated.callSettings as CallSettings;
     return reply.send({
       bot_settings: {
         call_greeting_message: updatedCallSettings.callGreetingMessage ?? null,
         call_goodbye_message: updatedCallSettings.callGoodbyeMessage ?? null,
-        voice_id: updated!.voiceId,
+        voice_id: updated.voiceId,
         primary_language: updatedCallSettings.primaryLanguage ?? 'en',
       },
     });
