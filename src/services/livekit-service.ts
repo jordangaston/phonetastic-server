@@ -10,6 +10,7 @@ import { toE164 } from '../lib/phone.js';
 import { env } from '../config/env.js';
 
 const AGENT_NAME = env.AGENT_NAME;
+const ROOM_EMPTY_TIMEOUT_SECONDS = 5 * 60;
 
 /**
  * Interface for LiveKit operations.
@@ -160,7 +161,7 @@ export class LiveKitServiceImpl implements LiveKitService {
 
   /** {@inheritDoc LiveKitService.createRoom} */
   async createRoom(name: string): Promise<string> {
-    const room = await this.roomService.createRoom({ name, emptyTimeout: 5 * 60 });
+    const room = await this.roomService.createRoom({ name, emptyTimeout: ROOM_EMPTY_TIMEOUT_SECONDS });
     return room.name;
   }
 
