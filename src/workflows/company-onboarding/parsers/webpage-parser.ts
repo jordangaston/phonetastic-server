@@ -22,9 +22,9 @@ function findWebPage(parsed: unknown): WebPageObject | null {
     }
     return null;
   }
-  const obj = parsed as Record<string, unknown>;
-  if ('@graph' in obj) return findWebPage(obj['@graph']);
-  return isWebPage(obj) ? obj : null;
+  const parsedEntity = parsed as Record<string, unknown>;
+  if ('@graph' in parsedEntity) return findWebPage(parsedEntity['@graph']);
+  return isWebPage(parsedEntity) ? parsedEntity : null;
 }
 
 /**
