@@ -7,6 +7,8 @@ import type { ResendService } from '../services/resend-service.js';
 
 export const sendOwnerEmailQueue = new WorkflowQueue('send-owner-email');
 
+const DEFAULT_FROM_ADDRESS = 'noreply@phonetastic.ai';
+
 /**
  * DBOS workflow that sends an owner's reply email via Resend.
  */
@@ -55,7 +57,7 @@ export class SendOwnerEmail {
     const endUser = await endUserRepo.findById(chat.endUserId);
     if (!endUser?.email) return null;
 
-    const fromAddress = chat.from ?? 'noreply@phonetastic.ai';
+    const fromAddress = chat.from ?? DEFAULT_FROM_ADDRESS;
     const allEmails = await emailRepo.findAllByChatId(chat.id, { limit: 100 });
     const latestEmail = allEmails.length > 0 ? allEmails[allEmails.length - 1] : null;
 

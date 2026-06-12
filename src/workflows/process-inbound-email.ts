@@ -20,6 +20,7 @@ import { UpdateChatSummary } from './update-chat-summary.js';
 
 export const processInboundEmailQueue = new WorkflowQueue('process-inbound-email');
 
+const DEFAULT_FROM_ADDRESS = 'noreply@phonetastic.ai';
 const MAX_SUMMARIZE_SIZE = 10 * 1024 * 1024;
 const MAX_AGENT_TURNS = 5;
 
@@ -317,7 +318,7 @@ export class ProcessInboundEmail {
     const endUser = await endUserRepo.findById(chat.endUserId);
     if (!endUser?.email) return;
 
-    const fromAddress = chat.from ?? 'noreply@phonetastic.ai';
+    const fromAddress = chat.from ?? DEFAULT_FROM_ADDRESS;
     const allEmails = await emailRepo.findAllByChatId(chatId, { limit: 100 });
     const latestEmail = allEmails.length > 0 ? allEmails[allEmails.length - 1] : null;
 
