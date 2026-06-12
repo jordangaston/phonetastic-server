@@ -17,24 +17,24 @@ import type { CompanyData, PhoneNumberData } from './parser-utils.js';
  */
 export async function parseLlmData(html: string): Promise<CompanyData | null> {
   const text = parse(html).text;
-  const info = await b.ParseCompanyInfo(text);
+  const companyInfo = await b.ParseCompanyInfo(text);
 
-  if (!info.name && !info.email && !info.address && !info.phone) return null;
+  if (!companyInfo.name && !companyInfo.email && !companyInfo.address && !companyInfo.phone) return null;
 
   const phoneNumbers: PhoneNumberData[] = [];
-  if (info.phone) {
-    try { phoneNumbers.push({ phoneNumberE164: toE164(info.phone), label: 'main' }); } catch { /* skip */ }
+  if (companyInfo.phone) {
+    try { phoneNumbers.push({ phoneNumberE164: toE164(companyInfo.phone), label: 'main' }); } catch { /* skip */ }
   }
 
   return {
-    name: info.name ?? null,
-    email: info.email ?? null,
-    address: info.address ? {
-      streetAddress: info.address.streetAddress ?? null,
-      city: info.address.city ?? null,
-      state: info.address.state ?? null,
-      postalCode: info.address.postalCode ?? null,
-      country: info.address.country ?? null,
+    name: companyInfo.name ?? null,
+    email: companyInfo.email ?? null,
+    address: companyInfo.address ? {
+      streetAddress: companyInfo.address.streetAddress ?? null,
+      city: companyInfo.address.city ?? null,
+      state: companyInfo.address.state ?? null,
+      postalCode: companyInfo.address.postalCode ?? null,
+      country: companyInfo.address.country ?? null,
       label: 'main',
     } : null,
     operationHours: [],
