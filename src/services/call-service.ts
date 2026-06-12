@@ -99,45 +99,17 @@ export class CallService {
    * @throws {BadRequestError} If testMode is false, or user has no company/phone number/bot.
    */
   async createCall(userId: number, input: { testMode: boolean }): Promise<{ call: ConnectingCall, accessToken: string }> {
-    if (!input.testMode) {
-      throw new BadRequestError('Outbound calls are not supported');
-    }
+    if (!input.testMode) throw new BadRequestError('Outbound calls are not supported');
 
-    const user = await this.userRepo.findById(userId);
-    if (!user?.companyId) throw new BadRequestError('User has no company');
-
-    const phoneNumber = await this.phoneNumberRepo.findByUserId(userId);
-    if (!phoneNumber) throw new BadRequestError('User phone number not found');
-
-    const bot = await this.botRepo.findByUserId(userId);
-    if (!bot) throw new BadRequestError('Bot not found');
-
+    const { user, phoneNumber, bot } = await this.resolveTestCallPrerequisites(userId);
     const externalCallId = `test-${randomUUID()}`;
     const participantIdentity = `user-${userId}`;
     const voice = await this.resolveVoice(bot.id);
-    const { call, botParticipant } = await this.db.transaction(async (tx) => {
-      const call = await this.callRepo.create({
-        externalCallId,
-        companyId: user.companyId!,
-        fromPhoneNumberId: phoneNumber.id,
-        toPhoneNumberId: phoneNumber.id,
-        testMode: true,
-        state: 'connecting',
-      }, tx);
 
-      const [, botParticipant] = await this.createParticipants(
-        call.id, userId, bot.id, user.companyId!, participantIdentity, voice?.id, tx,
-      );
-
-      return { call, botParticipant };
-    });
-
-    await this.livekitService.createRoom(externalCallId);
-    await this.livekitService.dispatchAgent(externalCallId);
-    const connectedBotParticipant = await transitionParticipantToConnected(botParticipant);
-    await this.participantRepo.updateState(connectedBotParticipant.id, connectedBotParticipant.state);
-    const accessToken = await this.livekitService.generateToken(externalCallId, participantIdentity);
-
+    const { call, botParticipant } = await this.createTestCallRecords(
+      externalCallId, user.companyId!, phoneNumber, userId, bot.id, participantIdentity, voice?.id,
+    );
+    const accessToken = await this.setupTestCallRoom(externalCallId, participantIdentity, botParticipant);
     return { call, accessToken };
   }
 
@@ -326,6 +298,40 @@ export class CallService {
       map.set(call.id, { id: transcript.id, summary: transcript.summary, entries });
     }));
     return map;
+  }
+
+  private async resolveTestCallPrerequisites(userId: number) {
+    const user = await this.userRepo.findById(userId);
+    if (!user?.companyId) throw new BadRequestError('User has no company');
+    const phoneNumber = await this.phoneNumberRepo.findByUserId(userId);
+    if (!phoneNumber) throw new BadRequestError('User phone number not found');
+    const bot = await this.botRepo.findByUserId(userId);
+    if (!bot) throw new BadRequestError('Bot not found');
+    return { user, phoneNumber, bot };
+  }
+
+  private async createTestCallRecords(
+    externalCallId: string, companyId: number, phoneNumber: PhoneNumber,
+    userId: number, botId: number, participantIdentity: string, voiceId: number | undefined,
+  ) {
+    return this.db.transaction(async (tx) => {
+      const call = await this.callRepo.create({
+        externalCallId, companyId, fromPhoneNumberId: phoneNumber.id,
+        toPhoneNumberId: phoneNumber.id, testMode: true, state: 'connecting',
+      }, tx);
+      const [, botParticipant] = await this.createParticipants(
+        call.id, userId, botId, companyId, participantIdentity, voiceId, tx,
+      );
+      return { call, botParticipant };
+    });
+  }
+
+  private async setupTestCallRoom(externalCallId: string, participantIdentity: string, botParticipant: WaitingBotParticipant) {
+    await this.livekitService.createRoom(externalCallId);
+    await this.livekitService.dispatchAgent(externalCallId);
+    const connected = await transitionParticipantToConnected(botParticipant);
+    await this.participantRepo.updateState(connected.id, connected.state);
+    return this.livekitService.generateToken(externalCallId, participantIdentity);
   }
 
   private async createInboundCallRecords(
