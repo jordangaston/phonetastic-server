@@ -42,13 +42,13 @@ export async function appointmentBookingSettingsController(app: FastifyInstance)
       appointmentSettings: { isEnabled: is_enabled, triggers: triggers ?? null, instructions: instructions ?? null },
     });
 
-    const s = updated!.appointmentSettings;
+    const appointmentSettings = updated!.appointmentSettings;
     return reply.send({
       appointment_booking_settings: {
         botId,
-        isEnabled: s.isEnabled,
-        triggers: s.triggers ?? null,
-        instructions: s.instructions ?? null,
+        isEnabled: appointmentSettings.isEnabled,
+        triggers: appointmentSettings.triggers ?? null,
+        instructions: appointmentSettings.instructions ?? null,
       },
     });
   });
@@ -58,11 +58,11 @@ export async function appointmentBookingSettingsController(app: FastifyInstance)
   }>('/v1/bots/:bot_id/appointment_booking_settings', { preHandler: [authGuard] }, async (request, reply) => {
     const botId = Number(request.params.bot_id);
     const bot = await botRepo.findById(botId);
-    const s = bot?.appointmentSettings;
+    const appointmentSettings = bot?.appointmentSettings;
 
     return reply.send({
-      appointment_booking_settings: s?.isEnabled !== undefined
-        ? { botId, isEnabled: s.isEnabled, triggers: s.triggers ?? null, instructions: s.instructions ?? null }
+      appointment_booking_settings: appointmentSettings?.isEnabled !== undefined
+        ? { botId, isEnabled: appointmentSettings.isEnabled, triggers: appointmentSettings.triggers ?? null, instructions: appointmentSettings.instructions ?? null }
         : null,
     });
   });
