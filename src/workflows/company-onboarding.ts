@@ -13,7 +13,7 @@ import type { CompanyData } from './company-onboarding/parsers/parser-utils.js';
 import { validateBusinessType } from './company-onboarding/business-types.js';
 import { ExtractOffersAndFAQs } from './extract-offers-and-faqs.js';
 import { ExtractCompany } from './extract-company.js';
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 import { createLogger } from '../lib/logger.js';
 
 const RETRY_CONFIG = {
