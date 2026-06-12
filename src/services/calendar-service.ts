@@ -204,35 +204,46 @@ function getOpenWindows(
     return [{ start: rangeStart, end: rangeEnd }];
   }
 
-  const hoursByDay = new Map<number, Array<{ openTime: string; closeTime: string }>>();
-  for (const oh of operationHours) {
-    const existing = hoursByDay.get(oh.dayOfWeek) ?? [];
-    existing.push(oh);
-    hoursByDay.set(oh.dayOfWeek, existing);
-  }
-
+  const hoursByDay = groupByDay(operationHours);
   const windows: Array<{ start: Date; end: Date }> = [];
   const current = new Date(rangeStart);
   current.setUTCHours(0, 0, 0, 0);
 
   while (current < rangeEnd) {
-    const dayOfWeek = current.getUTCDay();
-    const dayHours = hoursByDay.get(dayOfWeek) ?? [];
-
-    for (const oh of dayHours) {
-      const open = applyTimeToDate(current, oh.openTime);
-      const close = applyTimeToDate(current, oh.closeTime);
-      const windowStart = new Date(Math.max(open.getTime(), rangeStart.getTime()));
-      const windowEnd = new Date(Math.min(close.getTime(), rangeEnd.getTime()));
-      if (windowStart < windowEnd) {
-        windows.push({ start: windowStart, end: windowEnd });
-      }
-    }
-
+    const dayHours = hoursByDay.get(current.getUTCDay()) ?? [];
+    collectDayWindows(current, dayHours, rangeStart, rangeEnd, windows);
     current.setUTCDate(current.getUTCDate() + 1);
   }
 
   return windows;
+}
+
+function groupByDay(
+  operationHours: Array<{ dayOfWeek: number; openTime: string; closeTime: string }>,
+): Map<number, Array<{ openTime: string; closeTime: string }>> {
+  const map = new Map<number, Array<{ openTime: string; closeTime: string }>>();
+  for (const oh of operationHours) {
+    const existing = map.get(oh.dayOfWeek) ?? [];
+    existing.push(oh);
+    map.set(oh.dayOfWeek, existing);
+  }
+  return map;
+}
+
+function collectDayWindows(
+  date: Date,
+  dayHours: Array<{ openTime: string; closeTime: string }>,
+  rangeStart: Date,
+  rangeEnd: Date,
+  windows: Array<{ start: Date; end: Date }>,
+): void {
+  for (const oh of dayHours) {
+    const open = applyTimeToDate(date, oh.openTime);
+    const close = applyTimeToDate(date, oh.closeTime);
+    const windowStart = new Date(Math.max(open.getTime(), rangeStart.getTime()));
+    const windowEnd = new Date(Math.min(close.getTime(), rangeEnd.getTime()));
+    if (windowStart < windowEnd) windows.push({ start: windowStart, end: windowEnd });
+  }
 }
 
 function applyTimeToDate(date: Date, time: string): Date {
