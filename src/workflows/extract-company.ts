@@ -35,25 +35,17 @@ export class ExtractCompany {
     const html = await ExtractCompany.scrapeHomePage(siteUrl);
     const structured = await ExtractCompany.parseStructuredData(html);
 
-    if (!structured) {
-      return ExtractCompany.getLlmData(siteMap, html);
-    }
+    if (!structured) return ExtractCompany.getLlmData(siteMap, html);
 
-    // Structured data found but may be missing fields.
-    // Fill gaps from the LLM parser using the contact page or home page.
     const hasMissingFields =
       !structured.email ||
       !structured.address ||
       structured.operationHours.length === 0 ||
       structured.phoneNumbers.length === 0;
-    if (hasMissingFields) {
-      const llmData = await ExtractCompany.getLlmData(siteMap, html);
-      if (llmData) {
-        return mergeCompanyData(structured, llmData);
-      }
-    }
+    if (!hasMissingFields) return structured;
 
-    return structured;
+    const llmData = await ExtractCompany.getLlmData(siteMap, html);
+    return llmData ? mergeCompanyData(structured, llmData) : structured;
   }
 
   /**
