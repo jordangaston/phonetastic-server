@@ -388,14 +388,14 @@ export function buildChatHistory(
     entries.push({ createdAt: email.createdAt, entry: { role: 'user', label, content: email.bodyText ?? '' } });
   }
 
-  for (const tc of toolCalls) {
+  for (const toolCall of toolCalls) {
     entries.push({
-      createdAt: tc.createdAt,
-      entry: { role: 'assistant', content: JSON.stringify({ type: 'function_call', tool_name: tc.toolName, ...tc.input as object }) },
+      createdAt: toolCall.createdAt,
+      entry: { role: 'assistant', content: JSON.stringify({ type: 'function_call', tool_name: toolCall.toolName, ...toolCall.input as object }) },
     });
     entries.push({
-      createdAt: tc.createdAt,
-      entry: { role: 'user', content: JSON.stringify({ type: 'function_call_response', tool_call_id: tc.toolCallId, output: tc.output }) },
+      createdAt: toolCall.createdAt,
+      entry: { role: 'user', content: JSON.stringify({ type: 'function_call_response', tool_call_id: toolCall.toolCallId, output: toolCall.output }) },
     });
   }
 
