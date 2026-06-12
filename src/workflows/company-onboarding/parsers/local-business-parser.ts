@@ -6,7 +6,7 @@ import { createLogger } from '../../../lib/logger.js';
 
 const logger = createLogger('local-business-parser');
 import {
-  JSON_LD_SCRIPT_RE,
+  extractScriptBlocks,
   str,
   asArray,
   parseAddress,
@@ -101,7 +101,7 @@ async function parseOperationHours(entity: LocalBusinessObject): Promise<Operati
  * @boundary Returns the first LocalBusiness match only. Multi-location handling is deferred.
  */
 export async function parseLocalBusinessData(html: string): Promise<CompanyData | null> {
-  const scriptBlocks = [...html.matchAll(JSON_LD_SCRIPT_RE)].map(([, scriptContent]) => scriptContent?.trim() ?? '').filter(Boolean);
+  const scriptBlocks = extractScriptBlocks(html);
 
   for (const block of scriptBlocks) {
     try {

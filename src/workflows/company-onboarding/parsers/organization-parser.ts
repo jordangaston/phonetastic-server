@@ -1,5 +1,5 @@
 import {
-  JSON_LD_SCRIPT_RE,
+  extractScriptBlocks,
   str,
   asArray,
   parseAddress,
@@ -48,9 +48,7 @@ function parseName(entity: OrganizationObject): string | null {
  * @boundary `operationHours` is always empty — Organization does not define opening hours.
  */
 export async function parseOrganizationData(html: string): Promise<CompanyData | null> {
-  const scriptBlocks = [...html.matchAll(JSON_LD_SCRIPT_RE)]
-    .map(([, content]) => content?.trim() ?? '')
-    .filter(Boolean);
+  const scriptBlocks = extractScriptBlocks(html);
 
   for (const block of scriptBlocks) {
     try {

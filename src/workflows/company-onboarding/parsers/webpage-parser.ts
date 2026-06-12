@@ -1,5 +1,5 @@
 import {
-  JSON_LD_SCRIPT_RE,
+  extractScriptBlocks,
   str,
   asArray,
   type CompanyData,
@@ -40,9 +40,7 @@ function findWebPage(parsed: unknown): WebPageObject | null {
  * @boundary Only `name` is extracted — WebPage does not define contact or hours data.
  */
 export async function parseWebPageData(html: string): Promise<CompanyData | null> {
-  const scriptBlocks = [...html.matchAll(JSON_LD_SCRIPT_RE)]
-    .map(([, content]) => content?.trim() ?? '')
-    .filter(Boolean);
+  const scriptBlocks = extractScriptBlocks(html);
 
   for (const block of scriptBlocks) {
     try {
