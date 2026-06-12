@@ -349,7 +349,7 @@ export class CallService {
     if (botVoice) return botVoice;
     const defaultVoice = await this.voiceRepo.findFirstByProvider(env.DEFAULT_VOICE_PROVIDER);
     if (defaultVoice) {
-      logger.warn({ botId }, 'No voice configured for bot; using default provider voice');
+      logger.debug({ botId }, 'No voice configured for bot; using default provider voice');
       return defaultVoice;
     }
     logger.error({ botId }, 'No voice found for bot or default provider');
