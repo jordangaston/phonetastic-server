@@ -55,9 +55,9 @@ export function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '');
 }
 
-export function str(value: unknown): string | null {
+export function extractString(value: unknown): string | null {
   if (typeof value === 'string') return stripHtml(value).trim() || null;
-  if (Array.isArray(value)) return str(value[0]);
+  if (Array.isArray(value)) return extractString(value[0]);
   return null;
 }
 
@@ -77,7 +77,7 @@ export function extractCountry(addr: PostalAddress): string | null {
   const raw = asArray(addr.addressCountry)[0];
   if (!raw) return null;
   if (typeof raw === 'string') return stripHtml(raw).trim() || null;
-  return str((raw as { name?: unknown }).name);
+  return extractString((raw as { name?: unknown }).name);
 }
 
 /**
@@ -97,10 +97,10 @@ export function parseAddress(entity: { address?: unknown; location?: unknown }):
   }
 
   const addr = raw as PostalAddress;
-  const streetAddress = str(addr.streetAddress);
-  const city = str(addr.addressLocality);
-  const state = str(addr.addressRegion);
-  const postalCode = str(addr.postalCode);
+  const streetAddress = extractString(addr.streetAddress);
+  const city = extractString(addr.addressLocality);
+  const state = extractString(addr.addressRegion);
+  const postalCode = extractString(addr.postalCode);
   const country = extractCountry(addr);
 
   if (!streetAddress && !city && !state && !postalCode && !country) return null;
@@ -115,11 +115,11 @@ export function parseAddress(entity: { address?: unknown; location?: unknown }):
  * @returns Valid email string, or null if none found.
  */
 export function parseEmail(entity: { email?: unknown; contactPoint?: unknown }): string | null {
-  const top = str(entity.email);
+  const top = extractString(entity.email);
   if (top && EMAIL_REGEX.test(top)) return top;
 
   for (const cp of asArray(entity.contactPoint as unknown)) {
-    const email = str((cp as { email?: unknown }).email);
+    const email = extractString((cp as { email?: unknown }).email);
     if (email && EMAIL_REGEX.test(email)) return email;
   }
 
@@ -136,17 +136,17 @@ export function parseEmail(entity: { email?: unknown; contactPoint?: unknown }):
 export function parsePhoneNumbers(entity: { telephone?: unknown; contactPoint?: unknown }): PhoneNumberData[] {
   const result: PhoneNumberData[] = [];
 
-  const topPhone = str(entity.telephone);
+  const topPhone = extractString(entity.telephone);
   if (topPhone) {
     try { result.push({ phoneNumberE164: toE164(topPhone), label: 'main' }); } catch { /* skip */ }
   }
 
   for (const cp of asArray(entity.contactPoint as unknown)) {
     const c = cp as { telephone?: unknown; contactType?: unknown };
-    const phone = str(c.telephone);
+    const phone = extractString(c.telephone);
     if (!phone) continue;
     try {
-      const label = str(c.contactType) ?? 'main';
+      const label = extractString(c.contactType) ?? 'main';
       result.push({ phoneNumberE164: toE164(phone), label });
     } catch { /* skip */ }
   }

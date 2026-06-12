@@ -1,6 +1,6 @@
 import {
   JSON_LD_SCRIPT_RE,
-  str,
+  extractString,
   asArray,
   type CompanyData,
 } from './parser-utils.js';
@@ -49,7 +49,7 @@ export async function parseWebPageData(html: string): Promise<CompanyData | null
       const entity = findWebPage(JSON.parse(block));
       if (entity) {
         return {
-          name: str(entity['name']),
+          name: extractString(entity['name']),
           email: null,
           address: null,
           operationHours: [],

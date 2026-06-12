@@ -7,7 +7,7 @@ import { createLogger } from '../../../lib/logger.js';
 const logger = createLogger('local-business-parser');
 import {
   JSON_LD_SCRIPT_RE,
-  str,
+  extractString,
   asArray,
   parseAddress,
   parseEmail,
@@ -53,7 +53,7 @@ function findLocalBusiness(parsed: unknown): LocalBusinessObject | null {
 }
 
 function parseName(entity: LocalBusinessObject): string | null {
-  return str(entity['name']) ?? str(entity['legalName']);
+  return extractString(entity['name']) ?? extractString(entity['legalName']);
 }
 
 async function parseOperationHours(entity: LocalBusinessObject): Promise<OperationHourData[]> {
@@ -62,8 +62,8 @@ async function parseOperationHours(entity: LocalBusinessObject): Promise<Operati
     const result: OperationHourData[] = [];
     for (const spec of specs) {
       const s = spec as OpeningHoursSpecification;
-      const opens = str(s.opens);
-      const closes = str(s.closes);
+      const opens = extractString(s.opens);
+      const closes = extractString(s.closes);
       if (!opens || !closes) continue;
       for (const day of asArray(s.dayOfWeek)) {
         const dayOfWeek = DAY_TO_INT[String(day)];
@@ -74,7 +74,7 @@ async function parseOperationHours(entity: LocalBusinessObject): Promise<Operati
     return result;
   }
 
-  const text = str(entity['openingHours']);
+  const text = extractString(entity['openingHours']);
   if (!text) return [];
 
   const fromText = parseOpeningHoursText(text);

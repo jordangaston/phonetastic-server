@@ -1,6 +1,6 @@
 import {
   JSON_LD_SCRIPT_RE,
-  str,
+  extractString,
   asArray,
   parseAddress,
   parseEmail,
@@ -31,7 +31,7 @@ function findOrganization(parsed: unknown): OrganizationObject | null {
 }
 
 function parseName(entity: OrganizationObject): string | null {
-  return str(entity['legalName']) ?? str(entity['name']);
+  return extractString(entity['legalName']) ?? extractString(entity['name']);
 }
 
 /**
