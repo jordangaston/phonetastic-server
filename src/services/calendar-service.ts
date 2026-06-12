@@ -62,14 +62,10 @@ export class CalendarService {
     endDateTime: string,
     duration: string,
   ): Promise<AvailabilityResult> {
-    const calendar = await this.calendarRepo.findByUserId(userId);
-    if (!calendar) throw new Error('No calendar found for user');
-
-    const accessToken = await this.ensureValidToken(calendar);
-    const client = new RealGoogleCalendarClient(accessToken);
-    const timezone = await client.getCalendarTimezone(calendar.email);
-    const { busySlots } = await client.queryFreeBusy(calendar.email, startDateTime, endDateTime);
-    const operationHours = await this.operationHourRepo.findByCompanyId(calendar.companyId);
+    const { client, email, companyId } = await this.resolveClient(userId);
+    const timezone = await client.getCalendarTimezone(email);
+    const { busySlots } = await client.queryFreeBusy(email, startDateTime, endDateTime);
+    const operationHours = await this.operationHourRepo.findByCompanyId(companyId);
     const durationMs = parseDuration(duration);
 
     const availableSlots = computeAvailableSlots(
@@ -104,12 +100,12 @@ export class CalendarService {
     return { eventId: result.eventId, htmlLink: result.htmlLink };
   }
 
-  private async resolveClient(userId: number): Promise<{ client: GoogleCalendarClient; email: string }> {
+  private async resolveClient(userId: number): Promise<{ client: GoogleCalendarClient; email: string; companyId: number }> {
     const calendar = await this.calendarRepo.findByUserId(userId);
     if (!calendar) throw new Error('No calendar found for user');
 
     const accessToken = await this.ensureValidToken(calendar);
-    return { client: new RealGoogleCalendarClient(accessToken), email: calendar.email };
+    return { client: new RealGoogleCalendarClient(accessToken), email: calendar.email, companyId: calendar.companyId };
   }
 
   private async ensureValidToken(calendar: {
