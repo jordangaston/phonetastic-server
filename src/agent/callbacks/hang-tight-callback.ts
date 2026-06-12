@@ -1,6 +1,8 @@
 import { voice, log } from '@livekit/agents';
 import type { SessionData } from '../../agent.js';
 
+const DEFAULT_DELAY_MS = 1000;
+
 const ACKNOWLEDGE_INSTRUCTIONS =
   "Say something brief and natural to let the caller know you're working on their request. " +
   'One sentence. Use a dash for a natural pause. Contractions always. Positive and upbeat. ' +
@@ -22,7 +24,7 @@ export class HangTightCallback {
 
   constructor(
     private readonly session: voice.AgentSession<SessionData>,
-    private readonly delayMs: number = 1000,
+    private readonly delayMs: number = DEFAULT_DELAY_MS,
   ) { }
 
   run(ev: voice.AgentStateChangedEvent): void {
