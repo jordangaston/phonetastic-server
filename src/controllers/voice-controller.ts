@@ -3,6 +3,7 @@ import { container } from 'tsyringe';
 import { VoiceRepository } from '../repositories/voice-repository.js';
 import { authGuard } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
+import { parsePaginationQuery, nextPageToken } from '../lib/pagination.js';
 
 /**
  * Registers voice routes on the Fastify instance.
@@ -17,13 +18,11 @@ export async function voiceController(app: FastifyInstance): Promise<void> {
   app.get<{
     Querystring: { page_token?: string; limit?: string };
   }>('/v1/voices', { preHandler: [authGuard] }, async (request, reply) => {
-    const pageToken = request.query.page_token ? Number(request.query.page_token) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const { pageToken, limit } = parsePaginationQuery(request.query);
 
     const rows = await voiceRepo.findAll({ pageToken, limit });
-    const nextPageToken = rows.length > 0 ? rows[rows.length - 1].id : null;
 
-    return reply.send({ voices: rows, page_token: nextPageToken });
+    return reply.send({ voices: rows, page_token: nextPageToken(rows) });
   });
 
   app.get<{ Params: { id: string } }>(

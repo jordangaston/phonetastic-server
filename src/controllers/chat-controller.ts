@@ -4,6 +4,7 @@ import { ChatService } from '../services/chat-service.js';
 import type { StorageService } from '../services/storage-service.js';
 import { authGuard } from '../middleware/auth.js';
 import type { ChatChannel } from '../db/schema/enums.js';
+import { parsePaginationQuery, nextPageToken } from '../lib/pagination.js';
 
 /**
  * Registers chat routes on the Fastify instance.
@@ -28,13 +29,11 @@ export async function chatController(app: FastifyInstance): Promise<void> {
     Querystring: { channel?: string; page_token?: string; limit?: string };
   }>('/v1/chats', { preHandler: [authGuard] }, async (request, reply) => {
     const channel = request.query.channel as ChatChannel | undefined;
-    const pageToken = request.query.page_token ? Number(request.query.page_token) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const { pageToken, limit } = parsePaginationQuery(request.query);
 
     const chats = await chatService.listChats(request.userId, { channel, pageToken, limit });
-    const nextPageToken = chats.length > 0 ? chats[chats.length - 1].id : null;
 
-    return reply.send({ chats: chats.map(formatChat), page_token: nextPageToken });
+    return reply.send({ chats: chats.map(formatChat), page_token: nextPageToken(chats) });
   });
 
   /**
@@ -68,14 +67,12 @@ export async function chatController(app: FastifyInstance): Promise<void> {
     Querystring: { page_token?: string; limit?: string };
   }>('/v1/chats/:id/emails', { preHandler: [authGuard] }, async (request, reply) => {
     const chatId = Number(request.params.id);
-    const pageToken = request.query.page_token ? Number(request.query.page_token) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const { pageToken, limit } = parsePaginationQuery(request.query);
 
     const emailRows = await chatService.listEmails(request.userId, chatId, { pageToken, limit });
-    const nextPageToken = emailRows.length > 0 ? emailRows[emailRows.length - 1].id : null;
     const emails = await Promise.all(emailRows.map((e: any) => formatEmail(e, storageService)));
 
-    return reply.send({ emails, page_token: nextPageToken });
+    return reply.send({ emails, page_token: nextPageToken(emailRows) });
   });
 
   /**

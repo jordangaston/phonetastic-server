@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { container } from 'tsyringe';
 import { CallService } from '../services/call-service.js';
 import { authGuard } from '../middleware/auth.js';
+import { parsePaginationQuery, nextPageToken } from '../lib/pagination.js';
 
 /**
  * Registers call routes on the Fastify instance.
@@ -25,8 +26,7 @@ export async function callController(app: FastifyInstance): Promise<void> {
   app.get<{
     Querystring: { page_token?: string; limit?: string; sort?: string; expand?: string };
   }>('/v1/calls', { preHandler: [authGuard] }, async (request, reply) => {
-    const pageToken = request.query.page_token ? Number(request.query.page_token) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const { pageToken, limit } = parsePaginationQuery(request.query);
     const sort = request.query.sort === 'asc' ? 'asc' as const : 'desc' as const;
     const expand = request.query.expand?.split(',') ?? [];
 
@@ -34,11 +34,9 @@ export async function callController(app: FastifyInstance): Promise<void> {
       pageToken, limit, sort, expand,
     });
 
-    const nextPageToken = calls.length > 0 ? calls[calls.length - 1].id : null;
-
     return reply.send({
       calls: calls.map((c) => formatCall(c, transcripts, phoneNumbers, callerNames)),
-      page_token: nextPageToken,
+      page_token: nextPageToken(calls),
     });
   });
 

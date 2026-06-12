@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { container } from 'tsyringe';
 import { SmsService } from '../services/sms-service.js';
 import { authGuard } from '../middleware/auth.js';
+import { parsePaginationQuery, nextPageToken } from '../lib/pagination.js';
 
 /**
  * Registers SMS routes on the Fastify instance.
@@ -23,15 +24,13 @@ export async function smsController(app: FastifyInstance): Promise<void> {
   app.get<{
     Querystring: { page_token?: string; limit?: string };
   }>('/v1/sms', { preHandler: [authGuard] }, async (request, reply) => {
-    const pageToken = request.query.page_token ? Number(request.query.page_token) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const { pageToken, limit } = parsePaginationQuery(request.query);
 
     const messages = await smsService.listSmsMessages(request.userId, { pageToken, limit });
-    const nextPageToken = messages.length > 0 ? messages[messages.length - 1].id : null;
 
     return reply.send({
       sms_messages: messages.map(formatSmsMessage),
-      page_token: nextPageToken,
+      page_token: nextPageToken(messages),
     });
   });
 

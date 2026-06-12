@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { container } from 'tsyringe';
 import { SkillService } from '../services/skill-service.js';
 import { authGuard } from '../middleware/auth.js';
+import { parsePaginationQuery, nextPageToken } from '../lib/pagination.js';
 
 /**
  * Registers skill routes on the Fastify instance.
@@ -16,11 +17,9 @@ export async function skillController(app: FastifyInstance): Promise<void> {
   app.get<{
     Querystring: { page_token?: string; limit?: string };
   }>('/v1/skills', { preHandler: [authGuard] }, async (request, reply) => {
-    const pageToken = request.query.page_token ? Number(request.query.page_token) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const { pageToken, limit } = parsePaginationQuery(request.query);
     const rows = await skillService.findAll({ pageToken, limit });
-    const nextPageToken = rows.length > 0 ? rows[rows.length - 1].id : null;
-    return reply.send({ skills: rows, page_token: nextPageToken });
+    return reply.send({ skills: rows, page_token: nextPageToken(rows) });
   });
 
   app.post<{
