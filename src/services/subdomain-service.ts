@@ -7,6 +7,7 @@ import type { DBOSClientFactory } from './dbos-client-factory.js';
 const ADJECTIVES = ['bright', 'calm', 'swift', 'bold', 'keen', 'warm', 'fresh', 'cool', 'soft', 'true'];
 const NOUNS = ['fox', 'owl', 'elk', 'bee', 'ant', 'jay', 'yak', 'ram', 'emu', 'koi'];
 const MAX_RETRIES = 5;
+const SUFFIX_RANGE = 100;
 
 /**
  * Orchestrates subdomain creation and listing for the authenticated user's company.
@@ -78,7 +79,7 @@ export class SubdomainService {
   private generateSubdomain(): string {
     const adjective = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
     const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
-    const suffix = Math.floor(Math.random() * 100);
+    const suffix = Math.floor(Math.random() * SUFFIX_RANGE);
     return `${adjective}-${noun}-${suffix}`;
   }
 
