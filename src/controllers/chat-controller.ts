@@ -73,7 +73,7 @@ export async function chatController(app: FastifyInstance): Promise<void> {
 
     const emailRows = await chatService.listEmails(request.userId, chatId, { pageToken, limit });
     const nextPageToken = emailRows.length > 0 ? emailRows[emailRows.length - 1].id : null;
-    const emails = await Promise.all(emailRows.map((e: any) => formatEmail(e, storageService)));
+    const emails = await Promise.all(emailRows.map((e) => formatEmail(e, storageService)));
 
     return reply.send({ emails, page_token: nextPageToken });
   });
@@ -162,9 +162,9 @@ async function formatEmail(email: {
   bodyText: string | null;
   bodyHtml: string | null;
   createdAt: Date;
-  attachments: { id: number; filename: string; contentType: string; sizeBytes: number | null; storageKey: string | null }[];
+  attachments?: { id: number; filename: string; contentType: string; sizeBytes: number | null; storageKey: string | null }[];
 }, storageService: StorageService) {
-  const attachments = await Promise.all(email.attachments.map(async (a) => ({
+  const attachments = await Promise.all((email.attachments ?? []).map(async (a) => ({
     id: a.id,
     filename: a.filename,
     content_type: a.contentType,
