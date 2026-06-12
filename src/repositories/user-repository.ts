@@ -6,8 +6,6 @@ import type { Database, Transaction } from '../db/index.js';
 import type { User } from '../db/models.js';
 import { UserSchema } from '../types/index.js';
 
-export type Expandable = 'bot' | 'call_settings';
-
 /**
  * Data access layer for users.
  */
