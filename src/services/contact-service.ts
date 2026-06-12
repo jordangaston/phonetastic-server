@@ -39,7 +39,6 @@ export class ContactService {
 
     await this.db.transaction(async (tx) => {
       await this.contactRepo.deleteAllByUserId(userId, tx);
-
       if (rawContacts.length === 0) return;
 
       const contactRows = rawContacts.map((c) => ({
@@ -52,24 +51,7 @@ export class ContactService {
       }));
 
       const inserted = await this.contactRepo.createMany(contactRows, tx);
-
-      // Match inserted rows to input by deviceId (not index) to avoid order assumptions
-      const insertedByDeviceId = new Map(inserted.map((c) => [c.deviceId, c]));
-
-      const phoneRows: { contactId: number; phoneNumberE164: string }[] = [];
-      for (const raw of rawContacts) {
-        const contact = insertedByDeviceId.get(raw.device_id);
-        if (!contact) continue;
-        for (const num of raw.phone_numbers) {
-          try {
-            const e164 = toE164(num);
-            phoneRows.push({ contactId: contact.id, phoneNumberE164: e164 });
-          } catch {
-            // Skip invalid phone numbers
-          }
-        }
-      }
-
+      const phoneRows = buildPhoneRows(inserted, rawContacts);
       await this.contactRepo.createPhoneNumbers(phoneRows, tx);
     });
   }
@@ -85,4 +67,30 @@ export class ContactService {
   async resolveContact(e164: string, companyId: number) {
     return this.contactRepo.findByPhoneAndCompanyId(e164, companyId);
   }
+}
+
+/**
+ * Matches inserted contact rows to raw input by deviceId and normalizes phone numbers to E.164.
+ * Invalid phone numbers are silently skipped.
+ *
+ * @param inserted - The persisted contact rows (must have `id` and `deviceId`).
+ * @param rawContacts - The original device contacts with raw phone number strings.
+ * @returns Phone number rows ready for bulk insert.
+ */
+function buildPhoneRows(
+  inserted: Array<{ id: number; deviceId: string }>,
+  rawContacts: Array<{ device_id: string; phone_numbers: string[] }>,
+): Array<{ contactId: number; phoneNumberE164: string }> {
+  const byDeviceId = new Map(inserted.map((c) => [c.deviceId, c]));
+  const rows: Array<{ contactId: number; phoneNumberE164: string }> = [];
+
+  for (const raw of rawContacts) {
+    const contact = byDeviceId.get(raw.device_id);
+    if (!contact) continue;
+    for (const num of raw.phone_numbers) {
+      try { rows.push({ contactId: contact.id, phoneNumberE164: toE164(num) }); } catch {}
+    }
+  }
+
+  return rows;
 }
