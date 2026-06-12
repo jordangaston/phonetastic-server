@@ -100,9 +100,9 @@ export class ProcessInboundEmail {
       pending.map((a) => DBOS.startWorkflow(StoreAttachment).run(a.id, externalEmailId, companyId)),
     );
 
-    const results = await Promise.allSettled(handles);
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].status === 'rejected') {
+    const settledResults = await Promise.allSettled(handles);
+    for (let i = 0; i < settledResults.length; i++) {
+      if (settledResults[i].status === 'rejected') {
         DBOS.logger.warn({ msg: 'Attachment storage failed', emailId, attachmentId: pending[i].id });
         await ProcessInboundEmail.markAttachmentFailed(pending[i].id);
       }
@@ -123,12 +123,12 @@ export class ProcessInboundEmail {
     const toSummarize = await ProcessInboundEmail.loadUnsummarizedAttachments(emailId);
     const emailText = await ProcessInboundEmail.loadEmailText(emailId);
 
-    const results = await Promise.allSettled(
+    const settledResults = await Promise.allSettled(
       toSummarize.map((att) => ProcessInboundEmail.summarizeOneAttachment(att.id, att.storageKey, att.contentType, emailText)),
     );
 
     return toSummarize.map((att, i) => {
-      const result = results[i];
+      const result = settledResults[i];
       return {
         id: att.id,
         filename: att.filename,
