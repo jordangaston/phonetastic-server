@@ -8,13 +8,7 @@ import { parseLlmData } from './company-onboarding/parsers/llm-parser.js';
 import { findContactUrl } from './company-onboarding/site-map.js';
 import type { CompanyData } from './company-onboarding/parsers/parser-utils.js';
 import { mergeCompanyData } from './company-onboarding/parsers/parser-utils.js';
-
-const RETRY_CONFIG = {
-  retriesAllowed: true,
-  intervalSeconds: 10,
-  maxAttempts: 5,
-  backoffRate: 2,
-};
+import { RETRY_CONFIG } from './workflow-config.js';
 
 /**
  * DBOS sub-workflow that extracts company information from a website.

@@ -6,6 +6,7 @@ import type { ExtractedFaq, ExtractedOffering, PageSummary } from '../baml_clien
 import { b } from '../baml_client/index.js';
 import { stripHtml } from './company-onboarding/parsers/parser-utils.js';
 import { createLogger } from '../lib/logger.js';
+import { RETRY_CONFIG } from './workflow-config.js';
 
 const logger = createLogger('extract-offers-and-faqs');
 
@@ -15,8 +16,6 @@ export interface OffersAndFAQs {
   faqs: ExtractedFaq[];
   offers: ExtractedOffering[];
 }
-
-const RETRY_CONFIG = { retriesAllowed: true, intervalSeconds: 10, maxAttempts: 5, backoffRate: 2 };
 const BATCH_SIZE = 5;
 const FETCH_TIMEOUT_MS = 5_000;
 

@@ -15,13 +15,7 @@ import { ExtractOffersAndFAQs } from './extract-offers-and-faqs.js';
 import { ExtractCompany } from './extract-company.js';
 import { Logger } from 'pino';
 import { createLogger } from '../lib/logger.js';
-
-const RETRY_CONFIG = {
-  retriesAllowed: true,
-  intervalSeconds: 10,
-  maxAttempts: 5,
-  backoffRate: 2,
-};
+import { RETRY_CONFIG } from './workflow-config.js';
 
 /**
  * Workflow output containing the created company id.
