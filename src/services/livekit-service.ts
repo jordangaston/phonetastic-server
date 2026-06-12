@@ -117,8 +117,8 @@ export class StubLiveKitService implements LiveKitService {
   async removeParticipant(_roomName: string, _identity: string): Promise<void> {}
 
   async deleteRoom(roomName: string): Promise<void> {
-    const idx = this.createdRooms.indexOf(roomName);
-    if (idx !== -1) this.createdRooms.splice(idx, 1);
+    const roomIndex = this.createdRooms.indexOf(roomName);
+    if (roomIndex !== -1) this.createdRooms.splice(roomIndex, 1);
   }
 
   async createSipDispatchRule(_phoneNumber: string): Promise<string> { return 'stub-rule-id'; }
