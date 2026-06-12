@@ -2,8 +2,8 @@ import { injectable } from 'tsyringe';
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
-const ACCESS_TOKEN_TTL = '15m';
-const REFRESH_TOKEN_TTL = '30d';
+const ACCESS_TOKEN_TTL = 15 * 60;
+const REFRESH_TOKEN_TTL = 30 * 24 * 3600;
 
 /**
  * Handles JWT token generation and verification using per-user ECDSA key pairs.
@@ -33,25 +33,15 @@ export class AuthService {
    * @returns Access and refresh token objects with JWT string and expiration.
    */
   generateTokens(userId: number, privateKey: string, nonces: { access: number; refresh: number }) {
-    const accessToken = jwt.sign(
-      { sub: userId, nonce: nonces.access, type: 'access' },
-      privateKey,
-      { algorithm: 'ES256', expiresIn: ACCESS_TOKEN_TTL },
-    );
-
-    const refreshToken = jwt.sign(
-      { sub: userId, nonce: nonces.refresh, type: 'refresh' },
-      privateKey,
-      { algorithm: 'ES256', expiresIn: REFRESH_TOKEN_TTL },
-    );
-
-    const accessPayload = jwt.decode(accessToken) as jwt.JwtPayload;
-    const refreshPayload = jwt.decode(refreshToken) as jwt.JwtPayload;
-
     return {
-      access_token: { jwt: accessToken, expires_at: accessPayload.exp! },
-      refresh_token: { jwt: refreshToken, expires_at: refreshPayload.exp! },
+      access_token: this.signToken({ sub: userId, nonce: nonces.access, type: 'access' }, privateKey, ACCESS_TOKEN_TTL),
+      refresh_token: this.signToken({ sub: userId, nonce: nonces.refresh, type: 'refresh' }, privateKey, REFRESH_TOKEN_TTL),
     };
+  }
+
+  private signToken(payload: object, privateKey: string, ttlSeconds: number) {
+    const token = jwt.sign(payload, privateKey, { algorithm: 'ES256', expiresIn: ttlSeconds });
+    return { jwt: token, expires_at: Math.floor(Date.now() / 1000) + ttlSeconds };
   }
 
   /**
