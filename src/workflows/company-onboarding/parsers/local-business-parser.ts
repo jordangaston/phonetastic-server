@@ -47,9 +47,9 @@ function findLocalBusiness(parsed: unknown): LocalBusinessObject | null {
     }
     return null;
   }
-  const obj = parsed as Record<string, unknown>;
-  if ('@graph' in obj) return findLocalBusiness(obj['@graph']);
-  return isLocalBusiness(obj) ? obj : null;
+  const parsedEntity = parsed as Record<string, unknown>;
+  if ('@graph' in parsedEntity) return findLocalBusiness(parsedEntity['@graph']);
+  return isLocalBusiness(parsedEntity) ? parsedEntity : null;
 }
 
 function parseName(entity: LocalBusinessObject): string | null {
