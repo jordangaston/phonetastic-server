@@ -25,9 +25,9 @@ function findOrganization(parsed: unknown): OrganizationObject | null {
     }
     return null;
   }
-  const obj = parsed as Record<string, unknown>;
-  if ('@graph' in obj) return findOrganization(obj['@graph']);
-  return isOrganization(obj) ? obj : null;
+  const parsedEntity = parsed as Record<string, unknown>;
+  if ('@graph' in parsedEntity) return findOrganization(parsedEntity['@graph']);
+  return isOrganization(parsedEntity) ? parsedEntity : null;
 }
 
 function parseName(entity: OrganizationObject): string | null {
