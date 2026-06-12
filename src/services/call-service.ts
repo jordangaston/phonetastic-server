@@ -390,9 +390,9 @@ export class CallService {
   }
 
   private async findOrCreateEndUser(e164: string, companyId: number, tx: Transaction) {
-    const existing = await this.phoneNumberRepo.findByE164(e164, tx);
-    if (existing?.endUserId) {
-      const endUser = await this.endUserRepo.findById(existing.endUserId, tx);
+    const existingPhoneNumber = await this.phoneNumberRepo.findByE164(e164, tx);
+    if (existingPhoneNumber?.endUserId) {
+      const endUser = await this.endUserRepo.findById(existingPhoneNumber.endUserId, tx);
       if (endUser) return endUser;
     }
     return this.endUserRepo.create({ companyId }, tx);
