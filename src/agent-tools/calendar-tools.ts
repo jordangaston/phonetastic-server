@@ -73,18 +73,13 @@ export function createBookAppointmentTool(userId: number) {
           type: 'string',
           description: 'End time in ISO 8601 format (e.g. "2026-03-15T15:00:00").',
         },
-        endUserId: {
-          type: 'number',
-          description: 'The end user id of the caller.',
-        },
       },
-      required: ['summary', 'startDateTime', 'endDateTime', 'endUserId'],
+      required: ['summary', 'startDateTime', 'endDateTime'],
     },
     execute: async (params: {
       summary: string;
       startDateTime: string;
       endDateTime: string;
-      endUserId: number;
     }) => {
       try {
         const calendarService = container.resolve<CalendarService>('CalendarService');
@@ -99,7 +94,7 @@ export function createBookAppointmentTool(userId: number) {
           eventId: result.eventId,
         };
       } catch (err: any) {
-        log().error({ err, summary: params.summary, startDateTime: params.startDateTime, endDateTime: params.endDateTime, endUserId: params.endUserId }, 'Failed to book appointment');
+        log().error({ err, summary: params.summary, startDateTime: params.startDateTime, endDateTime: params.endDateTime }, 'Failed to book appointment');
         return { error: err.message };
       }
     },
